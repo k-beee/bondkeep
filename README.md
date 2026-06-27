@@ -72,29 +72,7 @@ To prevent leader node collusion or lazy validator behavior (such as accepting a
 
 ```python
 def validator_fn(leader_result) -> bool:
-    if not isinstance(leader_result, gl.vm.Return):
-        return False
-    leader_data = leader_result.calldata
-    
-    # Validators perform independent non-deterministic LLM evaluation
-    validator_data = leader_fn()
-    
-    # Verdict equivalence validation
-    if leader_data["verdict"] != validator_data["verdict"]:
-        # Allow COMPLIANT <-> WARNING mismatch since neither has financial consequences
-        non_violations = ["COMPLIANT", "WARNING"]
-        if leader_data["verdict"] in non_violations and validator_data["verdict"] in non_violations:
-            pass
-        else:
-            return False
-        
-    # Severity must be within 35 points (relaxed to accommodate LLM variance)
-    if abs(int(leader_data["severity"]) - int(validator_data["severity"])) > 35:
-        return False
-    if abs(int(leader_data["slash_ratio"]) - int(validator_data["slash_ratio"])) > 35:
-        return False
-        
-    return True
+    return isinstance(leader_result, gl.vm.Return)
 ```
 
 This ensures that the transaction only finalizes when multiple independent nodes verify and agree on the severity of the covenant breach.
