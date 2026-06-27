@@ -50,6 +50,10 @@ function App() {
   const [regEvidenceUrl, setRegEvidenceUrl] = useState<string>("");
   const [regBond, setRegBond] = useState<number>(500000); // 500,000 cents = $5,000
 
+  // Interaction Forms
+  const [topUpAmount, setTopUpAmount] = useState<number>(100000); // $1,000.00
+  const [reporterName, setReporterName] = useState<string>("watcher-alice");
+
 
   // Console Logs
   const [consoleLogs, setConsoleLogs] = useState<LogLine[]>([]);
@@ -213,6 +217,101 @@ function App() {
     } catch (err: any) {
       console.error(err);
       addLog(`[Register Error] ${err.message || err.toString()}`, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Top Up Bond
+  const handleTopUp = async () => {
+    if (!selectedAgentId || topUpAmount <= 0) return;
+    setIsLoading(true);
+    addLog(`[Top-up] Depositing $${(topUpAmount/100).toFixed(2)} collateral for ${selectedAgentId}...`, "info");
+    try {
+      const client = getGenLayerClient(privateKey);
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "top_up_bond",
+        args: [selectedAgentId, topUpAmount],
+        value: 0n,
+      });
+
+      addLog(`[Top-up] Tx Broadcasted. Hash: ${txHash}. Awaiting confirmation...`, "warning");
+
+      await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      addLog("[Top-up] Collateral successfully topped up!", "success");
+      await fetchAgentDetails(selectedAgentId);
+    } catch (err: any) {
+      console.error(err);
+      addLog(`[Top-up Error] ${err.message || err.toString()}`, "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Run Audit
+  const handleAudit = async () => {
+    if (!selectedAgentId || !activeAgentData) return;
+    setIsLoading(true);
+    addLog(`[Audit] Initiating compliance audit for: ${selectedAgentId} triggered by ${reporterName}...`, "info");
+    
+    const runSim = (delay: number, text: string, type: "info" | "success" | "error" | "warning" = "info") => {
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          addLog(text, type);
+          resolve();
+        }, delay);
+      });
+    };
+
+    try {
+      const client = getGenLayerClient(privateKey);
+      const txPromise = client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "audit",
+        args: [selectedAgentId, reporterName],
+        value: 0n,
+      });
+
+      await runSim(1000, `[GenVM] Tx sent to consensus pool. Dispatching validators...`, "info");
+      await runSim(2500, `[GenVM] Leader node selected. Initiating evidence render...`, "warning");
+      await runSim(4000, `[gl.nondet.web.render] Scraping activity logs from source: ${activeAgentData.evidence_url}`, "info");
+      await runSim(6000, `[gl.nondet.exec_prompt] Prompting LLM for mandate compliance...`, "warning");
+      await runSim(8000, `[GenVM] Validators verifying leader's return against consensus threshold...`, "info");
+
+      const txHash = await txPromise;
+      addLog(`[Audit] Consensus transaction mined. Hash: ${txHash}. Finalizing...`, "warning");
+
+      await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      addLog(`[Audit] SLA Audit Finalized!`, "success");
+      await fetchAgentDetails(selectedAgentId);
+      await fetchPenaltyPool();
+      
+      const refreshedClient = getGenLayerClient(privateKey);
+      const res = await refreshedClient.readContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "get_agent",
+        args: [selectedAgentId],
+      });
+      const parsed = JSON.parse(String(res)) as AgentState;
+      const latestAudit = parsed.audits[parsed.audits.length - 1];
+      if (latestAudit) {
+        const severityColor = latestAudit.severity >= 60 ? "error" : latestAudit.severity >= 30 ? "warning" : "success";
+        addLog(`[Audit Result] Verdict: ${latestAudit.verdict} (Severity: ${latestAudit.severity}/100)`, severityColor);
+        addLog(`[Audit reasoning] ${latestAudit.reasoning}`, "info");
+        if (latestAudit.slashed > 0) {
+          addLog(`[Slashed Alert] Slashed $${(latestAudit.slashed / 100).toFixed(2)} from active bond!`, "error");
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      addLog(`[Audit Error] ${err.message || err.toString()}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -447,6 +546,67 @@ function App() {
                     </div>
                   </div>
                 </section>
+
+                {/* Action Boxes */}
+                <div className="action-box-grid">
+                  {/* Audit Trigger */}
+                  <section className="card" style={{ marginBottom: 0 }}>
+                    <h2 className="card-title">
+                      🔍 Evaluate Compliance SLA
+                    </h2>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                      Fetch public logs and execute LLM verification under validator consensus.
+                    </p>
+                    
+                    <div className="form-group">
+                      <label className="form-label">Auditor / Reporter ID</label>
+                      <input
+                        type="text"
+                        className="form-input form-input-mono"
+                        value={reporterName}
+                        onChange={(e) => setReporterName(e.target.value)}
+                        disabled={isLoading || activeAgentData.status === "FROZEN"}
+                      />
+                    </div>
+
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleAudit}
+                      disabled={isLoading || activeAgentData.status === "FROZEN"}
+                    >
+                      {isLoading ? "Running SLA Audit..." : "🚀 Run Intelligent Audit"}
+                    </button>
+                  </section>
+
+                  {/* Top Up Bond Form */}
+                  <section className="card" style={{ marginBottom: 0 }}>
+                    <h2 className="card-title">
+                      💸 Top up Bond Collateral
+                    </h2>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                      Increase locked escrow collateral to support higher transaction volumes.
+                    </p>
+
+                    <div className="form-group">
+                      <label className="form-label">Top up Amount (in Cents)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        value={topUpAmount}
+                        onChange={(e) => setTopUpAmount(Number(e.target.value))}
+                        disabled={isLoading || activeAgentData.status === "FROZEN"}
+                      />
+                    </div>
+
+                    <button
+                      className="btn btn-secondary"
+                      onClick={handleTopUp}
+                      disabled={isLoading || activeAgentData.status === "FROZEN"}
+                    >
+                      {isLoading ? "Confirming..." : "➕ Deposit Collateral"}
+                    </button>
+                  </section>
+                </div>
               </div>
             ) : (
               <section className="empty-dashboard">
