@@ -76,7 +76,9 @@ class BondKeep(gl.Contract):
                 '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "reasoning": "brief explanation"}'
             )
             response = gl.nondet.exec_prompt(task, response_format="json")
-            return json.loads(response)
+            if isinstance(response, str):
+                return json.loads(response)
+            return response
 
         def validator_fn(leader_result) -> bool:
             return isinstance(leader_result, gl.vm.Return)
