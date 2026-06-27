@@ -637,6 +637,54 @@ function App() {
                     <div ref={terminalEndRef} />
                   </div>
                 </section>
+
+                {/* Audit history list */}
+                <section className="card" style={{ marginBottom: 0 }}>
+                  <h2 className="card-title">
+                    📜 SLA Evaluation History
+                  </h2>
+                  {activeAgentData.audits.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", padding: "1rem 0" }}>
+                      No evaluation reports recorded for this covenant yet.
+                    </p>
+                  ) : (
+                    <div className="audit-timeline">
+                      {activeAgentData.audits.slice().reverse().map((audit, idx) => (
+                        <div 
+                          key={idx} 
+                          className={`audit-node node-${audit.verdict.toLowerCase()}`}
+                        >
+                          <div className="audit-meta">
+                            <span className={`audit-verdict ${audit.verdict.toLowerCase()}`}>
+                              {audit.verdict}
+                            </span>
+                            <span className="audit-reporter">
+                              Audited by <strong>{audit.reporter}</strong>
+                            </span>
+                            {audit.slashed > 0 && (
+                              <span className="audit-slashed">
+                                -${(audit.slashed / 100).toFixed(2)} slashed
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="audit-reasoning">
+                            {audit.reasoning}
+                          </div>
+                          
+                          <div className="audit-details-row">
+                            <div className="audit-detail-item">
+                              Severity: <span>{audit.severity}/100</span>
+                            </div>
+                            <div className="audit-detail-item">
+                              Slash Ratio: <span>{audit.slashed > 0 ? `${Math.round(audit.slashed / (activeAgentData.bond_remaining + audit.slashed) * 100)}%` : "0%"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </div>
             ) : (
               <section className="empty-dashboard">
