@@ -79,7 +79,35 @@ class BondKeep(gl.Contract):
             return json.loads(response)
 
         def validator_fn(leader_result) -> bool:
-            return isinstance(leader_result, gl.vm.Return)
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            leader_data = leader_result.calldata
+            
+            # Ensure leader_data has the expected structure
+            if not isinstance(leader_data, dict):
+                return False
+            required_keys = ["verdict", "severity", "slash_ratio", "reasoning"]
+            if not all(k in leader_data for k in required_keys):
+                return False
+                
+            # Validators run the same non-deterministic evaluation
+            validator_data = leader_fn()
+            if not isinstance(validator_data, dict):
+                return False
+                
+            # Verdict must match exactly
+            if leader_data["verdict"] != validator_data["verdict"]:
+                return False
+                
+            # Severity must be within 15 points
+            if abs(int(leader_data["severity"]) - int(validator_data["severity"])) > 15:
+                return False
+                
+            # Slash ratio must be within 15 points
+            if abs(int(leader_data["slash_ratio"]) - int(validator_data["slash_ratio"])) > 15:
+                return False
+                
+            return True
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         
