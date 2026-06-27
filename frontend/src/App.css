@@ -71,27 +71,56 @@ body {
   z-index: 100;
 }
 
-.brand-section h1 {
+.logo-sentinel {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-sentinel h1 {
   font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  background: linear-gradient(90deg, #00f2fe, #b15cff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
+.logo-highlight {
+  background: linear-gradient(95deg, #ffc000 0%, #ff5722 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sentinel-shield {
+  position: relative;
+  width: 24px;
+  height: 28px;
+  background: linear-gradient(135deg, #ffc000 0%, #ff5722 100%);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 6px rgba(255, 192, 0, 0.4));
+}
+
+.sentinel-core {
+  width: 14px;
+  height: 16px;
+  background: #050811;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+
 .brand-badge {
   font-size: 0.7rem;
   padding: 0.2rem 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 87, 34, 0.05);
+  border: 1px solid rgba(255, 87, 34, 0.2);
   border-radius: 99px;
-  color: var(--text-secondary);
+  color: #ffb088;
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .header-meta {

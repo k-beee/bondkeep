@@ -329,9 +329,14 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <div className="brand-section">
-          <h1>
-            🛡️ BONDKEEP <span className="brand-badge">SLA Sentinel</span>
-          </h1>
+          <div className="logo-sentinel">
+            <div className="sentinel-shield">
+              <div className="sentinel-core"></div>
+            </div>
+            <h1>
+              BOND<span className="logo-highlight">KEEP</span> <span className="brand-badge">SLA Sentinel</span>
+            </h1>
+          </div>
         </div>
         
         <div className="header-meta">
