@@ -175,6 +175,8 @@ function App() {
     } finally {
       setIsFunding(false);
     }
+  };
+
   // Register Agent
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
