@@ -23,7 +23,7 @@ flowchart TD
 
     %% Body (winding left)
     subgraph Ingestion [Phase 2: Telemetry Ingestion]
-        F["🌐 Decentralized Web Reader<br/>(gl.nondet.web.render)"] <--|Scrapes Log URL| E["🌐 Evidence URL Log"]
+        E["🌐 Evidence URL Log"] -->|Scrapes Log URL| F["🌐 Decentralized Web Reader<br/>(gl.nondet.web.render)"]
         D -->|Initiates Audit Tx| F
     end
 
