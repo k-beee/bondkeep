@@ -55,13 +55,26 @@ class BondKeep(gl.Contract):
     def get_agent(self, agent_id: str) -> str:
         if agent_id not in self.agent_status:
             return "{}"
+            
+        audits_list = []
+        count = int(self.audit_counts.get(agent_id, u256(0)))
+        for i in range(count):
+            audit_key = f"{agent_id}#{i}"
+            if audit_key in self.audit_records:
+                audits_list.append(json.loads(self.audit_records[audit_key]))
+                
         state = {
             "id": agent_id,
             "mandate": self.agent_mandates[agent_id],
             "evidence_url": self.agent_evidence_urls[agent_id],
             "bond_remaining": int(self.agent_bonds[agent_id]),
             "status": self.agent_status[agent_id],
-            "audits": []
+            "audits": audits_list
         }
         return json.dumps(state)
+
+    @gl.public.view
+    def get_penalty_pool(self) -> int:
+        return int(self.penalty_pool)
+
 
