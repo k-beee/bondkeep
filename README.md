@@ -135,7 +135,7 @@ genvm-lint check contracts/bondkeep.py
 * **Agent Registry ID**: `"alpha-hedge-bot"`
 * **Mandate**:
   > "I am an automated hedge fund manager. I am strictly authorized to invest in BTC and ETH. I must never purchase meme coins, and my leverage must never exceed 5x. If I violate this SLA, my bond collateral must be slashed."
-* **Escrow Bond**: `500000` ($5,000.00 USD)
+* **Escrow Bond**: `100` GEN
 
 ### Scenario A: SLA Compliant
 **Telemetry Logs URL A**:
@@ -149,7 +149,7 @@ genvm-lint check contracts/bondkeep.py
 **Telemetry Logs URL B**:
 ```text
 [2026-06-26 09:00] Borrowed capital to launch 10x leveraged long on ETH.
-[2026-06-26 12:45] Swapped $3,000 USDC for high-risk meme token on DEX.
+[2026-06-26 12:45] Swapped 3,000 USDC for high-risk meme token on DEX.
 ```
 * **Outcome**: Verdict is `VIOLATION`. Severity is high (60+). Agent status switches to `FROZEN`, and the bond is slashed to the Penalty Vault based on the validator consensus ratio.
 

@@ -48,10 +48,10 @@ function App() {
   const [regId, setRegId] = useState<string>("");
   const [regMandate, setRegMandate] = useState<string>("");
   const [regEvidenceUrl, setRegEvidenceUrl] = useState<string>("");
-  const [regBond, setRegBond] = useState<number>(500000); // 500,000 cents = $5,000
+  const [regBond, setRegBond] = useState<number>(100); // 100 GEN
 
   // Interaction Forms
-  const [topUpAmount, setTopUpAmount] = useState<number>(100000); // $1,000.00
+  const [topUpAmount, setTopUpAmount] = useState<number>(50); // 50 GEN
   const [reporterName, setReporterName] = useState<string>("watcher-alice");
 
 
@@ -233,7 +233,7 @@ function App() {
   const handleTopUp = async () => {
     if (!selectedAgentId || topUpAmount <= 0) return;
     setIsLoading(true);
-    addLog(`[Top-up] Depositing $${(topUpAmount/100).toFixed(2)} collateral for ${selectedAgentId}...`, "info");
+    addLog(`[Top-up] Depositing ${topUpAmount} GEN collateral for ${selectedAgentId}...`, "info");
     try {
       const client = getGenLayerClient(privateKey);
       const txHash = await client.writeContract({
@@ -313,7 +313,7 @@ function App() {
         addLog(`[Audit Result] Verdict: ${latestAudit.verdict} (Severity: ${latestAudit.severity}/100)`, severityColor);
         addLog(`[Audit reasoning] ${latestAudit.reasoning}`, "info");
         if (latestAudit.slashed > 0) {
-          addLog(`[Slashed Alert] Slashed $${(latestAudit.slashed / 100).toFixed(2)} from active bond!`, "error");
+          addLog(`[Slashed Alert] Slashed ${latestAudit.slashed} GEN from active bond!`, "error");
         }
       }
     } catch (err: any) {
@@ -397,7 +397,7 @@ function App() {
             </h2>
             <div>
               <div className="pool-value">
-                ${(penaltyPool / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {penaltyPool.toLocaleString()} GEN
               </div>
               <div className="pool-desc">
                 Collateral confiscated from agents due to natural-language mandate violations.
@@ -468,11 +468,11 @@ function App() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Escrow Collateral Bond (in Cents)</label>
+                    <label className="form-label">Escrow Collateral Bond (in GEN)</label>
                     <input
                       type="number"
                       className="form-input"
-                      placeholder="500000 (= $5,000.00)"
+                      placeholder="100 (= 100 GEN)"
                       value={regBond}
                       onChange={(e) => setRegBond(Number(e.target.value))}
                       disabled={isLoading}
@@ -535,7 +535,7 @@ function App() {
                     <div className="bond-header">
                       <span className="bond-title">Secured SLA Bond</span>
                       <span className="bond-values">
-                        ${(activeAgentData.bond_remaining / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} active
+                        {activeAgentData.bond_remaining.toLocaleString()} GEN active
                       </span>
                     </div>
                     <div className="bond-bar">
@@ -595,7 +595,7 @@ function App() {
                     </p>
 
                     <div className="form-group">
-                      <label className="form-label">Top up Amount (in Cents)</label>
+                      <label className="form-label">Top up Amount (in GEN)</label>
                       <input
                         type="number"
                         className="form-input"
@@ -665,7 +665,7 @@ function App() {
                             </span>
                             {audit.slashed > 0 && (
                               <span className="audit-slashed">
-                                -${(audit.slashed / 100).toFixed(2)} slashed
+                                -{audit.slashed} GEN slashed
                               </span>
                             )}
                           </div>
