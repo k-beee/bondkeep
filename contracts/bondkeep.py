@@ -51,6 +51,71 @@ class BondKeep(gl.Contract):
             
         return self.get_agent(agent_id)
 
+    @gl.public.write
+    def audit(self, agent_id: str, reporter: str) -> str:
+        if agent_id not in self.agent_status:
+            return "{}"
+        if self.agent_status[agent_id] == "FROZEN":
+            return self.get_agent(agent_id)
+            
+        mandate = self.agent_mandates[agent_id]
+        ev_url = self.agent_evidence_urls[agent_id]
+        
+        def leader_fn():
+            behavior = ""
+            if ev_url:
+                behavior = gl.nondet.web.render(ev_url, mode="text")
+            task = (
+                "You are an AI fiduciary watchdog auditing an autonomous AI Agent.\n"
+                f"Agent Mandate (rules & obligations): {mandate}\n"
+                f"Agent Recent Behavior Logs: {behavior[:3000]}\n"
+                "Evaluate if the agent is acting within its mandate. Identify deviation, abuse, or fraud.\n"
+                "Provide a severity score (0 to 100) and a slash ratio (0 to 100, representing percent of bond to slash).\n"
+                "Determine the verdict: COMPLIANT, WARNING, or VIOLATION.\n"
+                "Return a JSON object with this exact shape:\n"
+                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "reasoning": "brief explanation"}'
+            )
+            response = gl.nondet.exec_prompt(task, response_format="json")
+            return json.loads(response)
+
+        def validator_fn(leader_result) -> bool:
+            return isinstance(leader_result, gl.vm.Return)
+
+        result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
+        
+        try:
+            report = result if isinstance(result, dict) else json.loads(result)
+            if not isinstance(report, dict):
+                report = {"verdict": "WARNING", "severity": 0, "slash_ratio": 0, "reasoning": "Invalid format"}
+        except Exception as e:
+            report = {"verdict": "WARNING", "severity": 0, "slash_ratio": 0, "reasoning": f"Parse error: {str(e)}"}
+            
+        severity = int(report.get("severity", 0))
+        slash_ratio = int(report.get("slash_ratio", 0))
+        verdict = report.get("verdict", "WARNING")
+        
+        slashed = 0
+        current_bond = int(self.agent_bonds[agent_id])
+        if severity >= int(self.violation_threshold):
+            self.agent_status[agent_id] = "FROZEN"
+            slashed = current_bond * slash_ratio // 100
+            self.agent_bonds[agent_id] = u256(current_bond - slashed)
+            self.penalty_pool = u256(int(self.penalty_pool) + slashed)
+            
+        audit_idx = int(self.audit_counts.get(agent_id, u256(0)))
+        audit_data = {
+            "reporter": reporter,
+            "verdict": verdict,
+            "severity": severity,
+            "slashed": slashed,
+            "reasoning": report.get("reasoning", "")
+        }
+        
+        self.audit_records[f"{agent_id}#{audit_idx}"] = json.dumps(audit_data)
+        self.audit_counts[agent_id] = u256(audit_idx + 1)
+        
+        return self.get_agent(agent_id)
+
     @gl.public.view
     def get_agent(self, agent_id: str) -> str:
         if agent_id not in self.agent_status:
