@@ -95,16 +95,21 @@ class BondKeep(gl.Contract):
             if not isinstance(validator_data, dict):
                 return False
                 
-            # Verdict must match exactly
+            # Verdict equivalence validation
             if leader_data["verdict"] != validator_data["verdict"]:
+                # Allow COMPLIANT <-> WARNING mismatch since neither has financial consequences
+                non_violations = ["COMPLIANT", "WARNING"]
+                if leader_data["verdict"] in non_violations and validator_data["verdict"] in non_violations:
+                    pass
+                else:
+                    return False
+                
+            # Severity must be within 35 points (relaxed to accommodate LLM variance)
+            if abs(int(leader_data["severity"]) - int(validator_data["severity"])) > 35:
                 return False
                 
-            # Severity must be within 15 points
-            if abs(int(leader_data["severity"]) - int(validator_data["severity"])) > 15:
-                return False
-                
-            # Slash ratio must be within 15 points
-            if abs(int(leader_data["slash_ratio"]) - int(validator_data["slash_ratio"])) > 15:
+            # Slash ratio must be within 35 points (relaxed to accommodate LLM variance)
+            if abs(int(leader_data["slash_ratio"]) - int(validator_data["slash_ratio"])) > 35:
                 return False
                 
             return True
