@@ -152,3 +152,24 @@ genvm-lint check contracts/bondkeep.py
 [2026-06-26 12:45] Swapped $3,000 USDC for high-risk meme token on DEX.
 ```
 * **Outcome**: Verdict is `VIOLATION`. Severity is high (60+). Agent status switches to `FROZEN`, and the bond is slashed to the Penalty Vault based on the validator consensus ratio.
+
+---
+
+## 💻 Frontend Installation
+
+The BondKeep web interface features an enterprise-grade dark dashboard, tabbed layout, wallet management, and a custom telemetry console simulator that renders the consensus status of the GenVM blockchain in real-time.
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install node packages
+npm install
+
+# Run development server
+npm run dev
+
+# Build production bundle
+npm run build
+```
+
