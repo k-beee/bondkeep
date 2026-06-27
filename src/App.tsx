@@ -108,6 +108,11 @@ function App() {
     fetchPenaltyPool();
   }, [selectedAgentId, activeAddress]);
 
+  // Auto-scroll console
+  useEffect(() => {
+    terminalEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [consoleLogs]);
+
   // Add line to custom console
   const addLog = (text: string, type: "info" | "success" | "error" | "warning" = "info") => {
     const timestamp = new Date().toLocaleTimeString();
@@ -607,6 +612,31 @@ function App() {
                     </button>
                   </section>
                 </div>
+
+                {/* Console Output simulator */}
+                <section className="card" style={{ marginBottom: 0 }}>
+                  <h2 className="card-title">
+                    💻 GenVM Consensus Telemetry
+                  </h2>
+                  <div className="terminal">
+                    <div className="terminal-header">
+                      <div className="terminal-dot dot-red" />
+                      <div className="terminal-dot dot-yellow" />
+                      <div className="terminal-dot dot-green" />
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginLeft: "0.5rem" }}>sentinel@genvm</span>
+                    </div>
+                    {consoleLogs.length === 0 ? (
+                      <div className="terminal-line info">Awaiting SLA transaction execution...</div>
+                    ) : (
+                      consoleLogs.map((log, idx) => (
+                        <div key={idx} className={`terminal-line ${log.type}`}>
+                          [{log.timestamp}] {log.text}
+                        </div>
+                      ))
+                    )}
+                    <div ref={terminalEndRef} />
+                  </div>
+                </section>
               </div>
             ) : (
               <section className="empty-dashboard">
