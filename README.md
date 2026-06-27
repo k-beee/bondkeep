@@ -1,15 +1,17 @@
 # 🛡️ BondKeep: Autonomous AI Escrow & SLA Enforcement Protocol
 
-🌐 **Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
-📝 **Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
 
 **BondKeep** is a decentralized fiduciary accountability and Service Level Agreement (SLA) bonding protocol for autonomous AI agents. Built as an **Intelligent Contract** on **GenLayer**, it lets users secure financial collateral (bonds) on-chain that can be dynamically slashed if the AI agent deviates from its natural-language operational mandate (SLA).
 
 By integrating GenLayer's non-deterministic web rendering and LLM-driven consensus, BondKeep translates unstructured log files and plain-English commitments into automated financial enforcement—without centralized API oracles or human intermediaries.
 
+**Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
+
+**Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
+
 ---
 
-## 🐉 System Pipeline (Dragon Chart)
+## System Pipeline
 
 ```mermaid
 flowchart TD
@@ -63,7 +65,7 @@ flowchart TD
 
 ---
 
-## 🧠 Core Advancements & Specifications
+## Core Advancements & Specifications
 
 ### 1. The Subjectivity & Telemetry Problem
 Traditional blockchains are closed, deterministic systems. They cannot evaluate natural-language agreements or verify subjective outcomes. BondKeep solves this by utilizing GenLayer's **non-deterministic capability matrix**:
@@ -89,7 +91,7 @@ Early implementations stored the entire state structure (including historical lo
 
 ---
 
-## 💻 Web Interface Design
+## Web Interface Design
 
 The BondKeep dashboard is built with a custom dark-mode design system featuring:
 * **SLA tabbed navigation**: Separating the SLA provisioning flow from the active monitoring controls.
@@ -98,7 +100,7 @@ The BondKeep dashboard is built with a custom dark-mode design system featuring:
 
 ---
 
-## ⚙️ Compilation & Deployment
+## Compilation & Deployment
 
 ### 1. Semantic Lint Check
 Verify that the python contract meets all compiler rules (no floats in public methods, correct imports, correct class name matching filename):
@@ -115,7 +117,7 @@ genvm-lint check contracts/bondkeep.py
 
 ---
 
-## 🧪 Evaluation Test Scenario
+## Evaluation Test Scenario
 
 ### SLA Covenant Setup
 * **Agent Registry ID**: `"alpha-hedge-bot"`
@@ -141,7 +143,7 @@ genvm-lint check contracts/bondkeep.py
 
 ---
 
-## 💻 Frontend Installation
+## Frontend Installation
 
 The BondKeep web interface features an enterprise-grade dark dashboard, tabbed layout, wallet management, and a custom telemetry console simulator that renders the consensus status of the GenVM blockchain in real-time.
 
