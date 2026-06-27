@@ -1,5 +1,8 @@
 # 🛡️ BondKeep: Autonomous AI Escrow & SLA Enforcement Protocol
 
+🌐 **Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
+📝 **Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
+
 **BondKeep** is a decentralized fiduciary accountability and Service Level Agreement (SLA) bonding protocol for autonomous AI agents. Built as an **Intelligent Contract** on **GenLayer**, it lets users secure financial collateral (bonds) on-chain that can be dynamically slashed if the AI agent deviates from its natural-language operational mandate (SLA).
 
 By integrating GenLayer's non-deterministic web rendering and LLM-driven consensus, BondKeep translates unstructured log files and plain-English commitments into automated financial enforcement—without centralized API oracles or human intermediaries.
