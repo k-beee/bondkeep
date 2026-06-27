@@ -37,6 +37,20 @@ class BondKeep(gl.Contract):
         
         return self.get_agent(agent_id)
 
+    @gl.public.write
+    def top_up_bond(self, agent_id: str, amount: int) -> str:
+        if agent_id not in self.agent_status:
+            return "{}"
+        if int(amount) <= 0:
+            return self.get_agent(agent_id)
+            
+        status = self.agent_status[agent_id]
+        if status == "ACTIVE":
+            current_bond = int(self.agent_bonds[agent_id])
+            self.agent_bonds[agent_id] = u256(current_bond + int(amount))
+            
+        return self.get_agent(agent_id)
+
     @gl.public.view
     def get_agent(self, agent_id: str) -> str:
         if agent_id not in self.agent_status:
