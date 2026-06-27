@@ -41,6 +41,16 @@ function App() {
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [activeAgentData, setActiveAgentData] = useState<AgentState | null>(null);
 
+  // Tab Control
+  const [activeTab, setActiveTab] = useState<"dashboard" | "provision">("dashboard");
+
+  // Register Form
+  const [regId, setRegId] = useState<string>("");
+  const [regMandate, setRegMandate] = useState<string>("");
+  const [regEvidenceUrl, setRegEvidenceUrl] = useState<string>("");
+  const [regBond, setRegBond] = useState<number>(500000); // 500,000 cents = $5,000
+
+
   // Console Logs
   const [consoleLogs, setConsoleLogs] = useState<LogLine[]>([]);
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -156,6 +166,56 @@ function App() {
     } finally {
       setIsFunding(false);
     }
+  // Register Agent
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regId || !regMandate || !regEvidenceUrl || regBond <= 0) {
+      alert("Please fill all agent registration fields.");
+      return;
+    }
+
+    setIsLoading(true);
+    addLog(`[Register] Provisioning SLA covenant for: ${regId}...`, "info");
+    try {
+      const client = getGenLayerClient(privateKey);
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "register_agent",
+        args: [regId, regMandate, regEvidenceUrl, regBond],
+        value: 0n,
+      });
+
+      addLog(`[Register] Tx Broadcasted. Hash: ${txHash}. Awaiting finalization...`, "warning");
+
+      const receipt = await client.waitForTransactionReceipt({
+        hash: txHash,
+      });
+
+      addLog(`[Register] Transformed to Block. Status: ${receipt.status}`, "success");
+      
+      // Update local registry
+      if (!agentsRegistry.includes(regId)) {
+        const updated = [...agentsRegistry, regId];
+        setAgentsRegistry(updated);
+        localStorage.setItem("bondkeep_registered_agents", JSON.stringify(updated));
+      }
+
+      // Reset form
+      setRegId("");
+      setRegMandate("");
+      setRegEvidenceUrl("");
+      
+      // Switch tab and focus on registered agent
+      setActiveTab("dashboard");
+      setSelectedAgentId(regId);
+      await fetchAgentDetails(regId);
+      await fetchPenaltyPool();
+    } catch (err: any) {
+      console.error(err);
+      addLog(`[Register Error] ${err.message || err.toString()}`, "error");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -267,11 +327,135 @@ function App() {
 
         {/* Right Main Panel */}
         <main className="main-panel">
-          <section className="empty-dashboard">
-            <div className="empty-icon">🤖</div>
-            <h3>System Ready</h3>
-            <p>Select or register an AI agent to monitor covenants and enforce SLA bonds.</p>
-          </section>
+          {/* Tab Navigation */}
+          <div className="tab-navigation">
+            <button
+              className={`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
+              onClick={() => setActiveTab("dashboard")}
+            >
+              📊 Covenants & Auditing
+            </button>
+            <button
+              className={`tab-btn ${activeTab === "provision" ? "active" : ""}`}
+              onClick={() => setActiveTab("provision")}
+            >
+              ✍️ Provision SLA & Bond
+            </button>
+          </div>
+
+          {activeTab === "provision" ? (
+            <section className="card">
+              <h2 className="card-title">
+                ✍️ Provision AI Agent SLA & Lock Collateral
+              </h2>
+              <form onSubmit={handleRegister}>
+                <div className="form-group" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div>
+                    <label className="form-label">Agent ID / Registry Key</label>
+                    <input
+                      type="text"
+                      className="form-input form-input-mono"
+                      placeholder="e.g. alpha-oracle-bot"
+                      value={regId}
+                      onChange={(e) => setRegId(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Escrow Collateral Bond (in Cents)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="500000 (= $5,000.00)"
+                      value={regBond}
+                      onChange={(e) => setRegBond(Number(e.target.value))}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Service Level Agreement (SLA) Mandate</label>
+                  <textarea
+                    className="form-textarea"
+                    placeholder="Describe agent constraints in plain natural language..."
+                    value={regMandate}
+                    onChange={(e) => setRegMandate(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Evidence Log Feed URL</label>
+                  <input
+                    type="url"
+                    className="form-input"
+                    placeholder="https://gist.githubusercontent.com/.../raw/logs.txt"
+                    value={regEvidenceUrl}
+                    onChange={(e) => setRegEvidenceUrl(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                  {isLoading ? "Broadcasting to GenLayer..." : "🔒 Lock Bond & Deploy SLA"}
+                </button>
+              </form>
+            </section>
+          ) : (
+            /* Dashboard Tab */
+            activeAgentData ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+                {/* Agent Header / Info */}
+                <section className="card">
+                  <div className="agent-header-card">
+                    <div className="agent-title-area">
+                      <h2>🤖 {activeAgentData.id}</h2>
+                      <a
+                        href={activeAgentData.evidence_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="agent-url"
+                      >
+                        🔗 Verify Public Telemetry Feed ↗
+                      </a>
+                    </div>
+                    <span className={`status-badge ${activeAgentData.status.toLowerCase()}`}>
+                      {activeAgentData.status}
+                    </span>
+                  </div>
+
+                  <div className="bond-container">
+                    <div className="bond-header">
+                      <span className="bond-title">Secured SLA Bond</span>
+                      <span className="bond-values">
+                        ${(activeAgentData.bond_remaining / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })} active
+                      </span>
+                    </div>
+                    <div className="bond-bar">
+                      <div
+                        className={`bond-fill ${activeAgentData.status === "FROZEN" ? "slashed" : ""}`}
+                        style={{ width: `${activeAgentData.bond_remaining > 0 ? 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "1.25rem" }}>
+                    <span className="form-label">SLA Fiduciary Mandate</span>
+                    <div className="mandate-quote">
+                      "{activeAgentData.mandate}"
+                    </div>
+                  </div>
+                </section>
+              </div>
+            ) : (
+              <section className="empty-dashboard">
+                <div className="empty-icon">📊</div>
+                <h3>No Covenant Selected</h3>
+                <p>Select a registered covenant from the left panel, or provision a new one in the SLA tab.</p>
+              </section>
+            )
+          )}
         </main>
       </div>
     </div>
