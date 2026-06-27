@@ -45,7 +45,7 @@ function App() {
   const [consoleLogs, setConsoleLogs] = useState<LogLine[]>([]);
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
-  // Load private key on mount
+  // Load private key and registry on mount
   useEffect(() => {
     let key = localStorage.getItem("bondkeep_private_key");
     if (!key) {
@@ -53,6 +53,23 @@ function App() {
       localStorage.setItem("bondkeep_private_key", key);
     }
     setPrivateKey(key);
+
+    const savedAgents = localStorage.getItem("bondkeep_registered_agents");
+    if (savedAgents) {
+      try {
+        const parsed = JSON.parse(savedAgents);
+        setAgentsRegistry(parsed);
+        if (parsed.length > 0) {
+          setSelectedAgentId(parsed[0]);
+        }
+      } catch (e) {
+        console.error("Failed to parse registry", e);
+      }
+    } else {
+      setAgentsRegistry(["alpha-oracle-bot"]);
+      setSelectedAgentId("alpha-oracle-bot");
+      localStorage.setItem("bondkeep_registered_agents", JSON.stringify(["alpha-oracle-bot"]));
+    }
   }, []);
 
   // Update address when privateKey changes
@@ -69,10 +86,56 @@ function App() {
     }
   }, [privateKey]);
 
+  // Load selected agent & penalty pool
+  useEffect(() => {
+    if (selectedAgentId) {
+      fetchAgentDetails(selectedAgentId);
+    }
+    fetchPenaltyPool();
+  }, [selectedAgentId, activeAddress]);
+
   // Add line to custom console
   const addLog = (text: string, type: "info" | "success" | "error" | "warning" = "info") => {
     const timestamp = new Date().toLocaleTimeString();
     setConsoleLogs((prev) => [...prev, { timestamp, text, type }]);
+  };
+
+  // Fetch Penalty Pool
+  const fetchPenaltyPool = async () => {
+    try {
+      const client = getGenLayerClient(privateKey);
+      const pool = await client.readContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "get_penalty_pool",
+      });
+      setPenaltyPool(Number(pool));
+    } catch (e) {
+      console.error("Failed to fetch penalty pool", e);
+    }
+  };
+
+  // Fetch details of a specific agent
+  const fetchAgentDetails = async (agentId: string) => {
+    if (!agentId) return;
+    try {
+      const client = getGenLayerClient(privateKey);
+      const res = await client.readContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "get_agent",
+        args: [agentId],
+      });
+      
+      const resStr = String(res);
+      if (resStr === "{}" || !resStr) {
+        setActiveAgentData(null);
+      } else {
+        const parsed = JSON.parse(resStr) as AgentState;
+        setActiveAgentData(parsed);
+      }
+    } catch (e) {
+      console.error("Failed to load agent details", e);
+      setActiveAgentData(null);
+    }
   };
 
   // Fund Account (Studionet only)
@@ -175,6 +238,31 @@ function App() {
               </div>
             </div>
           </section>
+
+          {/* Monitored Agents Registry */}
+          <section className="card">
+            <h2 className="card-title">
+              🤖 Active Covenants
+            </h2>
+            {agentsRegistry.length === 0 ? (
+              <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No monitored agents.</p>
+            ) : (
+              <div className="registry-list">
+                {agentsRegistry.map((id) => (
+                  <div
+                    key={id}
+                    className={`registry-item ${selectedAgentId === id ? "active" : ""}`}
+                    onClick={() => setSelectedAgentId(id)}
+                  >
+                    <span className="registry-id">{id}</span>
+                    <span className={`status-badge ${(activeAgentData?.id === id ? activeAgentData.status : "ACTIVE").toLowerCase()}`}>
+                      {activeAgentData?.id === id ? activeAgentData.status : "ACTIVE"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </aside>
 
         {/* Right Main Panel */}
@@ -191,3 +279,4 @@ function App() {
 }
 
 export default App;
+
