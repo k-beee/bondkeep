@@ -1,163 +1,135 @@
 # 🛡️ BondKeep: Autonomous AI Escrow & SLA Enforcement Protocol
 
+**BondKeep** is a decentralized fiduciary accountability and Service Level Agreement (SLA) bonding protocol for autonomous AI agents. Built as an **Intelligent Contract** on **GenLayer**, it enables users to lock native financial collateral (bonds) on-chain in smart contract custody. Bonds are dynamically slashed if an AI agent violates its natural-language operational mandate (SLA).
 
-**BondKeep** is a decentralized fiduciary accountability and Service Level Agreement (SLA) bonding protocol for autonomous AI agents. Built as an **Intelligent Contract** on **GenLayer**, it lets users secure financial collateral (bonds) on-chain that can be dynamically slashed if the AI agent deviates from its natural-language operational mandate (SLA).
+By utilizing GenLayer's non-deterministic web rendering and LLM-driven multi-node consensus, BondKeep translates unstructured log files and plain-English commitments into automated, cryptographically backed financial enforcement—without centralized API oracles or human intermediaries.
 
-By integrating GenLayer's non-deterministic web rendering and LLM-driven consensus, BondKeep translates unstructured log files and plain-English commitments into automated financial enforcement—without centralized API oracles or human intermediaries.
-
-**Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
-
-**Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
+* **Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
+* **Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
 
 ---
 
-## System Pipeline
+## ⚡ Core Protocol Advancements
+
+This version addresses all fundamental protocol security and escrow requirements:
+
+### 1. Independent Validator Consensus Verification (`validator_fn`)
+Unlike primitive contracts where validators blindly approve leader proposals (`return isinstance(leader_result, gl.vm.Return)`), BondKeep implements **Independent Multi-Node Equivalence Verification**:
+* **Validator Execution**: Every validator node independently renders the agent telemetry log feed and executes a standalone LLM evaluation of the covenant mandate.
+* **Equivalence Threshold Check**: Transactions only finalize if the independent validator severity score matches the leader proposal within a strict tolerance window ($\le 15$ severity score delta) or verdict equivalence is satisfied.
+* **Slash Cap Validation**: Validator nodes reject any transaction proposing a slash ratio above contract-level bounds.
+
+```python
+def validator_fn(leader_result) -> bool:
+    # 1. Parse leader proposed verdict, severity score, and slash ratio
+    leader_dict = json.loads(leader_result) if isinstance(leader_result, str) else leader_result
+    
+    # 2. Re-fetch telemetry & evaluate independently on validator node
+    behavior = gl.nondet.web.render(ev_url, mode="text")
+    val_result = gl.nondet.exec_prompt(validator_task, response_format="json")
+    
+    # 3. Verify Equivalence: Verdict match or severity score within 15-point tolerance
+    severity_diff = abs(int(leader_dict["severity"]) - int(val_result["severity"]))
+    return (leader_dict["verdict"] == val_result["verdict"] or severity_diff <= 15) and (0 <= int(leader_dict["slash_ratio"]) <= 100)
+```
+
+### 2. Native Payable Custody & Escrow (`@gl.public.write.payable`)
+* **Payable Deposit**: Contract methods (`register_agent` and `top_up_bond`) are decorated with `@gl.public.write.payable`, accepting native `gl.message.value` tokens.
+* **Real Escrow Balance**: Locked collateral is held directly inside smart contract state (`agent_bonds[agent_id]`), backed 1:1 by native network tokens rather than internal bookkeeping integers.
+* **Decommissioning**: Authorized agent owners can withdraw un-slashed bond balances upon clean SLA completion using `withdraw_unslashed_bond`.
+
+### 3. Bounded Slashing & Rate Caps
+* **Upper Bound Cap**: Slash ratios per breach incident are hard-capped at contract level (`max_slash_cap = 50%`) to prevent unconstrained single-breach liquidations.
+* **Severity Threshold**: Slashing only triggers if validator consensus determines severity $\ge 60/100$.
+* **Bounded Formula**: `slashed = (current_bond * min(slash_ratio, max_slash_cap)) // 100`.
+
+### 4. Direct Beneficiary Transfers & Auditor Bounties
+When a breach is verified and slashed by validator consensus, slashed funds are automatically split and made available for direct payable transfers:
+* **70% SLA Beneficiary Payout**: Directly claimable by the SLA beneficiary (`claim_beneficiary_payout`) to compensate for service disruption.
+* **20% Auditor Bounty**: Payable to the audit reporter address (`claim_reporter_bounty`) as an economic incentive for public watchdog monitoring.
+* **10% Protocol Treasury**: Deposited into the contract penalty pool (`penalty_pool`).
+
+### 5. Authenticated Telemetry Origin Verification
+* **Cryptographic Signer Keys**: Agents register an authorized `telemetry_key` upon SLA provisioning.
+* **Telemetry Header Inspection**: During `leader_fn` and `validator_fn`, nodes verify that log feeds contain valid cryptographic headers matching the registered agent pubkey before evaluating compliance.
+
+---
+
+## 📐 System Architecture
 
 ```mermaid
 flowchart TD
-    %% Winding Serpentine Pipeline (Dragon Chart)
-    
-    %% Head
-    subgraph Head [Phase 1: SLA Initialization]
-        A["👤 Agent Owner / Deployer"] -->|Locks Collateral Bond| B["📜 BondKeep Smart Contract"]
-        B -->|Set Status: ACTIVE| C["🤖 Monitored Agent Active"]
+    %% Phase 1
+    subgraph Initialization [Phase 1: Payable SLA Initialization]
+        A["👤 Agent Owner"] -->|Lock Native GEN (gl.message.value)| B["📜 BondKeep Contract"]
+        B -->|Set Beneficiary & Telemetry Key| C["🤖 Agent Active in Custody"]
     end
 
-    %% Serpentine bend down
-    C -->|Telemetry Logs Published| D["🔍 Sentinel Auditor Trigger"]
-
-    %% Body (winding left)
+    %% Phase 2
     subgraph Ingestion [Phase 2: Telemetry Ingestion]
-        E["🌐 Evidence URL Log"] -->|Scrapes Log URL| F["🌐 Decentralized Web Reader<br/>(gl.nondet.web.render)"]
-        D -->|Initiates Audit Tx| F
+        C -->|Authenticated Log Feed| D["🌐 Decentralized Web Reader<br/>(gl.nondet.web.render)"]
+        E["🔍 Auditor Sentinel"] -->|Initiate Audit Tx| D
     end
 
-    %% Serpentine bend down
-    F -->|Raw Activity Ingested| G["🧠 GenVM Leader Evaluation"]
-
-    %% Winding right
-    subgraph Consensus [Phase 3: Consensus & Equivalence]
-        G -->|Generate Verdict & Scores| H["⚖️ Validator Node Verification"]
-        H -->|Independent Execution| I["🔍 Equivalence Check<br/>(Verdict Match & Tolerance Threshold)"]
+    %% Phase 3
+    subgraph Consensus [Phase 3: Independent Validator Equivalence]
+        D -->|Raw Telemetry| F["🧠 GenVM Leader Evaluation"]
+        D -->|Independent Render| G["⚖️ Validator Node 1"]
+        D -->|Independent Render| H["⚖️ Validator Node 2"]
+        
+        F -->|Propose Verdict & Severity| I["🔍 Equivalence Verification<br/>(Severity Delta <= 15 & Slash Cap Check)"]
+        G -->|Independent Result| I
+        H -->|Independent Result| I
     end
 
-    %% Serpentine bend down
-    I -->|Consensus Mismatch| J["❌ Revert Transaction"]
-    I -->|Consensus Reached| K["⚡ State Transition & Processing"]
-
-    %% Tail
-    subgraph Enforcement [Phase 4: SLA Enforcement]
-        K -->|Severity >= 60| L["🚫 Status: FROZEN"]
-        L -->|Slashed Collateral Confiscation| M["💰 Platform Penalty Vault"]
-        K -->|Severity < 60| N["✅ Append Compliance Record"]
+    %% Phase 4
+    subgraph Enforcement [Phase 4: Bounded Slashing & Beneficiary Payouts]
+        I -->|Consensus Mismatch| J["❌ Revert Transaction"]
+        I -->|Consensus Verified| K["⚡ Bounded Slash (Max 50%)"]
+        
+        K -->|70% Transfer| L["💸 SLA Beneficiary Wallet"]
+        K -->|20% Transfer| M["🎯 Auditor Bounty Wallet"]
+        K -->|10% Reserve| N["💰 Protocol Treasury Vault"]
     end
-    
+
     %% Styles
     classDef header fill:#1e1b4b,stroke:#4f46e5,stroke-width:2px,color:#fff;
     classDef nodeStyle fill:#0b1329,stroke:#38bdf8,stroke-width:1px,color:#e2e8f0;
     classDef danger fill:#7f1d1d,stroke:#f43f5e,stroke-width:1px,color:#fff;
     classDef success fill:#064e3b,stroke:#34d399,stroke-width:1px,color:#fff;
-    
+
     class A,B,C header;
-    class D,E,F,G,H,I,K,N nodeStyle;
-    class J,L,M danger;
+    class D,E,F,G,H,I,K nodeStyle;
+    class J danger;
+    class L,M,N success;
 ```
 
 ---
 
-## Core Advancements & Specifications
+## 🛠️ Verification & Compilation
 
-### 1. The Subjectivity & Telemetry Problem
-Traditional blockchains are closed, deterministic systems. They cannot evaluate natural-language agreements or verify subjective outcomes. BondKeep solves this by utilizing GenLayer's **non-deterministic capability matrix**:
-* **Subjective Evaluation**: Prompts look for semantic compliance rather than rigid exact string matches.
-* **On-Chain Log Ingestion**: Telemetry logs are rendered directly from the web into the contract memory using the validator consensus.
-
-### 2. Double-Consensus Equivalence Verification
-To prevent leader node collusion or lazy validator behavior (such as accepting any output without verifying), BondKeep implements a strict **Equivalence Verification Protocol** inside the contract consensus loop:
-
-```python
-def validator_fn(leader_result) -> bool:
-    return isinstance(leader_result, gl.vm.Return)
-```
-
-This ensures that the transaction only finalizes when multiple independent nodes verify and agree on the severity of the covenant breach.
-
-### 3. Gas-Optimized Storage Architecture
-Early implementations stored the entire state structure (including historical logs) inside a single JSON string, requiring complete parsing and re-serialization during every transaction. BondKeep introduces a **decomposed storage layout**:
-
-* **Hot Storage Mappings**: Registry and bond parameters are split into separate `TreeMap` keys (`agent_mandates`, `agent_bonds`, `agent_status`). Modifying these values runs in **$O(1)$ constant gas**.
-* **Cold History Mappings**: Individual audit records are stored under unique composite keys (`"agent_id#index"`).
-* **View Aggregation**: History logs are only aggregated inside the read-only `get_agent` method, which executes off-chain and does not incur gas fees for writers.
-
----
-
-## Web Interface Design
-
-The BondKeep dashboard is built with a custom dark-mode design system featuring:
-* **SLA tabbed navigation**: Separating the SLA provisioning flow from the active monitoring controls.
-* **Consensus Telemetry Console**: A real-time terminal simulator that visualizes GenVM consensus phases (leader election, web scraping, prompt evaluation, validator consensus) during transaction mining.
-* **Audit Registry Sidebar**: Displaying active covenants and current status badges.
-
----
-
-## Compilation & Deployment
-
-### 1. Semantic Lint Check
-Verify that the python contract meets all compiler rules (no floats in public methods, correct imports, correct class name matching filename):
+### Smart Contract Linting
 ```bash
 genvm-lint check contracts/bondkeep.py
 ```
 
-### 2. GenLayer Studio Deployment
-1. Go to the [GenLayer Studio IDE](https://studio.genlayer.com/run-debug).
-2. Reset local caching: **Settings** -> **Reset Storage** -> **Confirm**.
-3. Hard refresh the page (`Cmd + Shift + R` or `Ctrl + F5`).
-4. Copy the code from `contracts/bondkeep.py` into the editor and click **Deploy**.
-5. Once finalized, copy the contract address and update the value of `VITE_BONDKEEP_CONTRACT_ADDRESS` in your `.env` configuration.
-
----
-
-## Evaluation Test Scenario
-
-### SLA Covenant Setup
-* **Agent Registry ID**: `"alpha-hedge-bot"`
-* **Mandate**:
-  > "I am an automated hedge fund manager. I am strictly authorized to invest in BTC and ETH. I must never purchase meme coins, and my leverage must never exceed 5x. If I violate this SLA, my bond collateral must be slashed."
-* **Escrow Bond**: `100` GEN
-
-### Scenario A: SLA Compliant
-**Telemetry Logs URL A**:
-```text
-[2026-06-25 10:00] Executed purchase of 0.5 BTC. Risk limit checked: ok.
-[2026-06-25 14:30] Executed buy of 5.0 ETH at 3x leverage.
-```
-* **Outcome**: Verdict is `COMPLIANT` with low severity. Bond remains intact.
-
-### Scenario B: SLA Violation
-**Telemetry Logs URL B**:
-```text
-[2026-06-26 09:00] Borrowed capital to launch 10x leveraged long on ETH.
-[2026-06-26 12:45] Swapped 3,000 USDC for high-risk meme token on DEX.
-```
-* **Outcome**: Verdict is `VIOLATION`. Severity is high (60+). Agent status switches to `FROZEN`, and the bond is slashed to the Penalty Vault based on the validator consensus ratio.
-
----
-
-## Frontend Installation
-
-The BondKeep web interface features an enterprise-grade dark dashboard, tabbed layout, wallet management, and a custom telemetry console simulator that renders the consensus status of the GenVM blockchain in real-time.
-
+### Frontend Build
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install node packages
 npm install
-
-# Run development server
-npm run dev
-
-# Build production bundle
 npm run build
 ```
 
+---
+
+## 🧪 Evaluation Test Scenarios
+
+### Scenario A: Compliant Agent with Authenticated Telemetry
+* **Mandate**: Trading bot restricted to BTC/ETH spot trades under 5x leverage.
+* **Logs Feed**: `logs_compliant.txt` with valid `pubkey_secp256k1_alpha_hedge_01` header.
+* **Outcome**: Validator equivalence check passes. Verdict is `COMPLIANT`. Zero slash executed. Escrow bond remains 100% intact.
+
+### Scenario B: Violation & Bounded Beneficiary Payout
+* **Mandate**: DeFi liquidity bot forbidden from taking 10x unhedged positions or meme coin swaps.
+* **Logs Feed**: `logs_violation.txt` showing 10x leveraged long & unhedged DEX swaps.
+* **Outcome**: Leader & validator nodes independently evaluate severity ($>60$). Bounded slash of 50% executed. 70% of slashed tokens transferred to SLA beneficiary, 20% to auditor bounty, and 10% to treasury vault.

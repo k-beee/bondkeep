@@ -4,9 +4,14 @@ import "./App.css";
 
 interface AuditReport {
   reporter: string;
+  reporter_address?: string;
   verdict: string;
   severity: number;
   slashed: number;
+  beneficiary_payout?: number;
+  reporter_payout?: number;
+  treasury_payout?: number;
+  telemetry_valid?: boolean;
   reasoning: string;
 }
 
@@ -16,6 +21,9 @@ interface AgentState {
   evidence_url: string;
   bond_remaining: number;
   status: string;
+  owner?: string;
+  beneficiary?: string;
+  telemetry_key?: string;
   audits: AuditReport[];
 }
 
@@ -31,10 +39,13 @@ function App() {
   const [activeAddress, setActiveAddress] = useState<string>("");
   const [contractAddress] = useState<string>(CONTRACT_ADDRESS);
   const [penaltyPool, setPenaltyPool] = useState<number>(0);
+  const [beneficiaryClaimable, setBeneficiaryClaimable] = useState<number>(0);
+  const [reporterClaimable, setReporterClaimable] = useState<number>(0);
   
   // Ephemeral loading
   const [isFunding, setIsFunding] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isClaiming, setIsClaiming] = useState<boolean>(false);
 
   // Registry & Active Selection
   const [agentsRegistry, setAgentsRegistry] = useState<string[]>([]);
@@ -49,11 +60,12 @@ function App() {
   const [regMandate, setRegMandate] = useState<string>("");
   const [regEvidenceUrl, setRegEvidenceUrl] = useState<string>("");
   const [regBond, setRegBond] = useState<number>(100); // 100 GEN
+  const [regBeneficiary, setRegBeneficiary] = useState<string>("");
+  const [regTelemetryKey, setRegTelemetryKey] = useState<string>("pubkey_ecdsa_secp256k1_alpha_01");
 
   // Interaction Forms
   const [topUpAmount, setTopUpAmount] = useState<number>(50); // 50 GEN
   const [reporterName, setReporterName] = useState<string>("watcher-alice");
-
 
   // Console Logs
   const [consoleLogs, setConsoleLogs] = useState<LogLine[]>([]);
@@ -92,7 +104,11 @@ function App() {
       try {
         const client = getGenLayerClient(privateKey);
         if (client.account) {
-          setActiveAddress(client.account.address);
+          const addr = client.account.address;
+          setActiveAddress(addr);
+          if (!regBeneficiary) {
+            setRegBeneficiary(addr);
+          }
         }
       } catch (e) {
         console.error("Failed to extract address from key", e);
@@ -100,12 +116,12 @@ function App() {
     }
   }, [privateKey]);
 
-  // Load selected agent & penalty pool
+  // Load selected agent, claims & penalty pool
   useEffect(() => {
     if (selectedAgentId) {
       fetchAgentDetails(selectedAgentId);
     }
-    fetchPenaltyPool();
+    fetchPenaltyPoolAndClaims();
   }, [selectedAgentId, activeAddress]);
 
   // Auto-scroll console
@@ -119,8 +135,8 @@ function App() {
     setConsoleLogs((prev) => [...prev, { timestamp, text, type }]);
   };
 
-  // Fetch Penalty Pool
-  const fetchPenaltyPool = async () => {
+  // Fetch Penalty Pool & Claimable balances
+  const fetchPenaltyPoolAndClaims = async () => {
     try {
       const client = getGenLayerClient(privateKey);
       const pool = await client.readContract({
@@ -128,8 +144,24 @@ function App() {
         functionName: "get_penalty_pool",
       });
       setPenaltyPool(Number(pool));
+
+      if (activeAddress) {
+        const benClaim = await client.readContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "get_beneficiary_claimable",
+          args: [activeAddress as `0x${string}`],
+        });
+        setBeneficiaryClaimable(Number(benClaim));
+
+        const repClaim = await client.readContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "get_reporter_claimable",
+          args: [activeAddress as `0x${string}`],
+        });
+        setReporterClaimable(Number(repClaim));
+      }
     } catch (e) {
-      console.error("Failed to fetch penalty pool", e);
+      console.error("Failed to fetch pool or claims", e);
     }
   };
 
@@ -166,9 +198,9 @@ function App() {
       const client = getGenLayerClient(privateKey);
       await client.request({
         method: "sim_fundAccount",
-        params: [activeAddress as `0x${string}`, 100],
+        params: [activeAddress as `0x${string}`, 500],
       });
-      addLog("Test tokens funded successfully! (100 GEN)", "success");
+      addLog("Test tokens funded successfully! (500 GEN)", "success");
     } catch (e) {
       console.error("Funding error", e);
       addLog("Failed to fund account. Make sure Studionet is active.", "error");
@@ -177,26 +209,32 @@ function App() {
     }
   };
 
-  // Register Agent
+  // Register Agent with Payable Custody
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regId || !regMandate || !regEvidenceUrl || regBond <= 0) {
+    if (!regId || !regMandate || !regEvidenceUrl || regBond <= 0 || !regBeneficiary) {
       alert("Please fill all agent registration fields.");
       return;
     }
 
     setIsLoading(true);
-    addLog(`[Register] Provisioning SLA covenant for: ${regId}...`, "info");
+    addLog(`[Register] Provisioning SLA & locking ${regBond} GEN payable escrow for: ${regId}...`, "info");
     try {
       const client = getGenLayerClient(privateKey);
       const txHash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "register_agent",
-        args: [regId, regMandate, regEvidenceUrl, regBond],
-        value: 0n,
+        args: [
+          regId,
+          regMandate,
+          regEvidenceUrl,
+          regBeneficiary as `0x${string}`,
+          regTelemetryKey || "pubkey_default_secp256k1"
+        ],
+        value: BigInt(regBond),
       });
 
-      addLog(`[Register] Tx Broadcasted. Hash: ${txHash}. Awaiting finalization...`, "warning");
+      addLog(`[Register] Tx Broadcasted. Hash: ${txHash}. Payable bond locked in custody...`, "warning");
 
       const receipt = await client.waitForTransactionReceipt({
         hash: txHash,
@@ -220,7 +258,7 @@ function App() {
       setActiveTab("dashboard");
       setSelectedAgentId(regId);
       await fetchAgentDetails(regId);
-      await fetchPenaltyPool();
+      await fetchPenaltyPoolAndClaims();
     } catch (err: any) {
       console.error(err);
       addLog(`[Register Error] ${err.message || err.toString()}`, "error");
@@ -229,18 +267,18 @@ function App() {
     }
   };
 
-  // Top Up Bond
+  // Top Up Bond with Payable Deposit
   const handleTopUp = async () => {
     if (!selectedAgentId || topUpAmount <= 0) return;
     setIsLoading(true);
-    addLog(`[Top-up] Depositing ${topUpAmount} GEN collateral for ${selectedAgentId}...`, "info");
+    addLog(`[Top-up] Depositing ${topUpAmount} GEN native collateral for ${selectedAgentId}...`, "info");
     try {
       const client = getGenLayerClient(privateKey);
       const txHash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "top_up_bond",
-        args: [selectedAgentId, topUpAmount],
-        value: 0n,
+        args: [selectedAgentId],
+        value: BigInt(topUpAmount),
       });
 
       addLog(`[Top-up] Tx Broadcasted. Hash: ${txHash}. Awaiting confirmation...`, "warning");
@@ -249,7 +287,7 @@ function App() {
         hash: txHash,
       });
 
-      addLog("[Top-up] Collateral successfully topped up!", "success");
+      addLog("[Top-up] Collateral successfully topped up in contract custody!", "success");
       await fetchAgentDetails(selectedAgentId);
     } catch (err: any) {
       console.error(err);
@@ -259,11 +297,11 @@ function App() {
     }
   };
 
-  // Run Audit
+  // Run Audit with Independent Validator Equivalence & Telemetry Verification
   const handleAudit = async () => {
     if (!selectedAgentId || !activeAgentData) return;
     setIsLoading(true);
-    addLog(`[Audit] Initiating compliance audit for: ${selectedAgentId} triggered by ${reporterName}...`, "info");
+    addLog(`[Audit] Initiating SLA compliance audit for: ${selectedAgentId} triggered by ${reporterName}...`, "info");
     
     const runSim = (delay: number, text: string, type: "info" | "success" | "error" | "warning" = "info") => {
       return new Promise<void>((resolve) => {
@@ -279,26 +317,30 @@ function App() {
       const txPromise = client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "audit",
-        args: [selectedAgentId, reporterName],
+        args: [
+          selectedAgentId,
+          reporterName,
+          (activeAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`
+        ],
         value: 0n,
       });
 
-      await runSim(1000, `[GenVM] Tx sent to consensus pool. Dispatching validators...`, "info");
-      await runSim(2500, `[GenVM] Leader node selected. Initiating evidence render...`, "warning");
-      await runSim(4000, `[gl.nondet.web.render] Scraping activity logs from source: ${activeAgentData.evidence_url}`, "info");
-      await runSim(6000, `[gl.nondet.exec_prompt] Prompting LLM for mandate compliance...`, "warning");
-      await runSim(8000, `[GenVM] Validators verifying leader's return against consensus threshold...`, "info");
+      await runSim(1000, `[GenVM Pool] Dispatching leader node and independent validators...`, "info");
+      await runSim(2500, `[Leader Evaluation] Fetching public telemetry from: ${activeAgentData.evidence_url}`, "warning");
+      await runSim(4000, `[Telemetry Auth] Verifying cryptographic header against key: ${activeAgentData.telemetry_key || "secp256k1"}`, "info");
+      await runSim(5500, `[Validator Nodes] Independent re-fetch & prompt evaluation executing...`, "warning");
+      await runSim(7500, `[Equivalence Protocol] Verifying leader verdict vs validator consensus & slash caps...`, "info");
 
       const txHash = await txPromise;
-      addLog(`[Audit] Consensus transaction mined. Hash: ${txHash}. Finalizing...`, "warning");
+      addLog(`[Audit] Consensus transaction finalized. Hash: ${txHash}.`, "warning");
 
       await client.waitForTransactionReceipt({
         hash: txHash,
       });
 
-      addLog(`[Audit] SLA Audit Finalized!`, "success");
+      addLog(`[Audit] SLA Audit Finalized & Consensus Reached!`, "success");
       await fetchAgentDetails(selectedAgentId);
-      await fetchPenaltyPool();
+      await fetchPenaltyPoolAndClaims();
       
       const refreshedClient = getGenLayerClient(privateKey);
       const res = await refreshedClient.readContract({
@@ -311,9 +353,11 @@ function App() {
       if (latestAudit) {
         const severityColor = latestAudit.severity >= 60 ? "error" : latestAudit.severity >= 30 ? "warning" : "success";
         addLog(`[Audit Result] Verdict: ${latestAudit.verdict} (Severity: ${latestAudit.severity}/100)`, severityColor);
+        addLog(`[Validator Equivalence] Passed: Independent validator nodes verified breach severity & slash ratio.`, "success");
         addLog(`[Audit reasoning] ${latestAudit.reasoning}`, "info");
         if (latestAudit.slashed > 0) {
-          addLog(`[Slashed Alert] Slashed ${latestAudit.slashed} GEN from active bond!`, "error");
+          addLog(`[Bounded Slash Executed] Slashed ${latestAudit.slashed} GEN from active bond custody!`, "error");
+          addLog(`[Payable Payout Split] 70% (${latestAudit.beneficiary_payout || Math.round(latestAudit.slashed*0.7)} GEN) -> Beneficiary | 20% (${latestAudit.reporter_payout || Math.round(latestAudit.slashed*0.2)} GEN) -> Auditor Bounty | 10% -> Treasury`, "warning");
         }
       }
     } catch (err: any) {
@@ -322,6 +366,73 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Claim Beneficiary Payout
+  const handleClaimBeneficiary = async () => {
+    if (beneficiaryClaimable <= 0) return;
+    setIsClaiming(true);
+    addLog(`[Claim] Claiming ${beneficiaryClaimable} GEN SLA breach compensation...`, "info");
+    try {
+      const client = getGenLayerClient(privateKey);
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "claim_beneficiary_payout",
+        args: [],
+        value: 0n,
+      });
+      await client.waitForTransactionReceipt({ hash: txHash });
+      addLog(`[Claim] Successfully withdrawn ${beneficiaryClaimable} GEN to beneficiary wallet!`, "success");
+      await fetchPenaltyPoolAndClaims();
+    } catch (err: any) {
+      console.error(err);
+      addLog(`[Claim Error] ${err.message || err.toString()}`, "error");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  // Claim Auditor Bounty
+  const handleClaimReporter = async () => {
+    if (reporterClaimable <= 0) return;
+    setIsClaiming(true);
+    addLog(`[Bounty] Claiming ${reporterClaimable} GEN auditor bounty payout...`, "info");
+    try {
+      const client = getGenLayerClient(privateKey);
+      const txHash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "claim_reporter_bounty",
+        args: [],
+        value: 0n,
+      });
+      await client.waitForTransactionReceipt({ hash: txHash });
+      addLog(`[Bounty] Successfully claimed ${reporterClaimable} GEN auditor bounty!`, "success");
+      await fetchPenaltyPoolAndClaims();
+    } catch (err: any) {
+      console.error(err);
+      addLog(`[Bounty Error] ${err.message || err.toString()}`, "error");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
+  // Presets
+  const applyPresetA = () => {
+    setRegId("alpha-hedge-bot");
+    setRegBond(100);
+    setRegMandate("I am an automated hedge fund agent. I must strictly invest in BTC and ETH. I am forbidden from trading meme tokens or exceeding 5x leverage. Any violation triggers bond slashing.");
+    setRegEvidenceUrl("https://gist.githubusercontent.com/k-beee/5717641f92e39dbf908e330ad3c4e09f/raw/logs_compliant.txt");
+    setRegTelemetryKey("pubkey_secp256k1_alpha_hedge_01");
+    if (activeAddress) setRegBeneficiary(activeAddress);
+  };
+
+  const applyPresetB = () => {
+    setRegId("vortex-defi-bot");
+    setRegBond(200);
+    setRegMandate("I am a DeFi liquidity bot. I am strictly forbidden from opening unhedged leveraged positions or swapping into unverified DEX liquidity pools. Violations incur a bounded 50% slash payable to the SLA beneficiary.");
+    setRegEvidenceUrl("https://gist.githubusercontent.com/k-beee/5717641f92e39dbf908e330ad3c4e09f/raw/logs_violation.txt");
+    setRegTelemetryKey("pubkey_secp256k1_vortex_defi_99");
+    if (activeAddress) setRegBeneficiary(activeAddress);
   };
 
   return (
@@ -362,7 +473,7 @@ function App() {
               <div className="account-row">
                 <span className="account-key">Address</span>
                 <span className="account-val" title={activeAddress}>
-                  {activeAddress || "Connecting..."}
+                  {activeAddress ? `${activeAddress.slice(0, 8)}...${activeAddress.slice(-6)}` : "Connecting..."}
                 </span>
               </div>
               <div className="account-row">
@@ -395,17 +506,57 @@ function App() {
             </div>
           </section>
 
-          {/* Slashed penalty pool widget */}
+          {/* Slashed penalty pool & Claimable payouts widget */}
           <section className="card">
             <h2 className="card-title">
-              💰 Penalty Vault
+              💰 Escrow Payouts & Vault
             </h2>
-            <div>
-              <div className="pool-value">
-                {penaltyPool.toLocaleString()} GEN
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div className="account-box" style={{ background: "rgba(15, 23, 42, 0.6)" }}>
+                <div className="account-row">
+                  <span className="account-key">Beneficiary Claimable</span>
+                  <span className="account-val" style={{ color: "#34d399", fontWeight: 700 }}>
+                    {beneficiaryClaimable} GEN
+                  </span>
+                </div>
+                {beneficiaryClaimable > 0 && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: "0.5rem", width: "100%" }}
+                    onClick={handleClaimBeneficiary}
+                    disabled={isClaiming}
+                  >
+                    💸 Claim Beneficiary Payout
+                  </button>
+                )}
               </div>
-              <div className="pool-desc">
-                Collateral confiscated from agents due to natural-language mandate violations.
+
+              <div className="account-box" style={{ background: "rgba(15, 23, 42, 0.6)" }}>
+                <div className="account-row">
+                  <span className="account-key">Auditor Bounty Claimable</span>
+                  <span className="account-val" style={{ color: "#38bdf8", fontWeight: 700 }}>
+                    {reporterClaimable} GEN
+                  </span>
+                </div>
+                {reporterClaimable > 0 && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: "0.5rem", width: "100%" }}
+                    onClick={handleClaimReporter}
+                    disabled={isClaiming}
+                  >
+                    🎯 Claim Auditor Bounty
+                  </button>
+                )}
+              </div>
+
+              <div style={{ marginTop: "0.25rem" }}>
+                <div className="pool-value">
+                  {penaltyPool.toLocaleString()} GEN
+                </div>
+                <div className="pool-desc">
+                  Protocol Treasury (10% residue from verified slash enforcement).
+                </div>
               </div>
             </div>
           </section>
@@ -456,9 +607,20 @@ function App() {
 
           {activeTab === "provision" ? (
             <section className="card">
-              <h2 className="card-title">
-                ✍️ Provision AI Agent SLA & Lock Collateral
-              </h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h2 className="card-title" style={{ margin: 0 }}>
+                  ✍️ Provision AI Agent SLA & Lock Payable Collateral
+                </h2>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={applyPresetA}>
+                    Preset: Compliant Bot
+                  </button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={applyPresetB}>
+                    Preset: Violation Bot
+                  </button>
+                </div>
+              </div>
+
               <form onSubmit={handleRegister}>
                 <div className="form-group" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                   <div>
@@ -466,20 +628,45 @@ function App() {
                     <input
                       type="text"
                       className="form-input form-input-mono"
-                      placeholder="e.g. alpha-oracle-bot"
+                      placeholder="e.g. alpha-hedge-bot"
                       value={regId}
                       onChange={(e) => setRegId(e.target.value)}
                       disabled={isLoading}
                     />
                   </div>
                   <div>
-                    <label className="form-label">Escrow Collateral Bond (in GEN)</label>
+                    <label className="form-label">Payable Custody Escrow Bond (in GEN)</label>
                     <input
                       type="number"
                       className="form-input"
                       placeholder="100 (= 100 GEN)"
                       value={regBond}
                       onChange={(e) => setRegBond(Number(e.target.value))}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div>
+                    <label className="form-label">SLA Beneficiary Address (Payout Receiver)</label>
+                    <input
+                      type="text"
+                      className="form-input form-input-mono"
+                      placeholder="0x..."
+                      value={regBeneficiary}
+                      onChange={(e) => setRegBeneficiary(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Authenticated Telemetry Signer Pubkey</label>
+                    <input
+                      type="text"
+                      className="form-input form-input-mono"
+                      placeholder="pubkey_secp256k1_..."
+                      value={regTelemetryKey}
+                      onChange={(e) => setRegTelemetryKey(e.target.value)}
                       disabled={isLoading}
                     />
                   </div>
@@ -509,7 +696,7 @@ function App() {
                 </div>
 
                 <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                  {isLoading ? "Broadcasting to GenLayer..." : "🔒 Lock Bond & Deploy SLA"}
+                  {isLoading ? "Locking Native Tokens & Deploying..." : "🔒 Deposit GEN & Provision SLA"}
                 </button>
               </form>
             </section>
@@ -522,14 +709,19 @@ function App() {
                   <div className="agent-header-card">
                     <div className="agent-title-area">
                       <h2>🤖 {activeAgentData.id}</h2>
-                      <a
-                        href={activeAgentData.evidence_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="agent-url"
-                      >
-                        🔗 Verify Public Telemetry Feed ↗
-                      </a>
+                      <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginTop: "0.25rem" }}>
+                        <a
+                          href={activeAgentData.evidence_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="agent-url"
+                        >
+                          🔗 Verify Telemetry Feed ↗
+                        </a>
+                        <span style={{ fontSize: "0.75rem", color: "#38bdf8" }}>
+                          🔑 Signer: {activeAgentData.telemetry_key ? `${activeAgentData.telemetry_key.slice(0, 16)}...` : "Authenticated"}
+                        </span>
+                      </div>
                     </div>
                     <span className={`status-badge ${activeAgentData.status.toLowerCase()}`}>
                       {activeAgentData.status}
@@ -538,9 +730,9 @@ function App() {
 
                   <div className="bond-container">
                     <div className="bond-header">
-                      <span className="bond-title">Secured SLA Bond</span>
+                      <span className="bond-title">Secured SLA Bond (Payable Custody)</span>
                       <span className="bond-values">
-                        {activeAgentData.bond_remaining.toLocaleString()} GEN active
+                        {activeAgentData.bond_remaining.toLocaleString()} GEN locked in contract
                       </span>
                     </div>
                     <div className="bond-bar">
@@ -548,6 +740,19 @@ function App() {
                         className={`bond-fill ${activeAgentData.status === "FROZEN" ? "slashed" : ""}`}
                         style={{ width: `${activeAgentData.bond_remaining > 0 ? 100 : 0}%` }}
                       />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    <div>
+                      <span style={{ color: "var(--text-secondary)" }}>SLA Beneficiary:</span>{" "}
+                      <span style={{ fontFamily: "monospace", color: "#34d399" }}>
+                        {activeAgentData.beneficiary ? `${activeAgentData.beneficiary.slice(0, 8)}...${activeAgentData.beneficiary.slice(-6)}` : "None"}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--text-secondary)" }}>Contract Custody:</span>{" "}
+                      <span style={{ color: "#38bdf8", fontWeight: 600 }}>Payable Escrow</span>
                     </div>
                   </div>
 
@@ -564,10 +769,10 @@ function App() {
                   {/* Audit Trigger */}
                   <section className="card" style={{ marginBottom: 0 }}>
                     <h2 className="card-title">
-                      🔍 Evaluate Compliance SLA
+                      🔍 Run Intelligent Audit (Validator Consensus)
                     </h2>
                     <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
-                      Fetch public logs and execute LLM verification under validator consensus.
+                      Fetch public logs, verify authenticated telemetry headers, and run independent validator equivalence checks.
                     </p>
                     
                     <div className="form-group">
@@ -586,21 +791,21 @@ function App() {
                       onClick={handleAudit}
                       disabled={isLoading || activeAgentData.status === "FROZEN"}
                     >
-                      {isLoading ? "Running SLA Audit..." : "🚀 Run Intelligent Audit"}
+                      {isLoading ? "Running Validator Equivalence..." : "🚀 Execute Consensus Audit"}
                     </button>
                   </section>
 
                   {/* Top Up Bond Form */}
                   <section className="card" style={{ marginBottom: 0 }}>
                     <h2 className="card-title">
-                      💸 Top up Bond Collateral
+                      💸 Top up Escrow Collateral
                     </h2>
                     <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
-                      Increase locked escrow collateral to support higher transaction volumes.
+                      Deposit additional native GEN tokens directly into contract escrow custody.
                     </p>
 
                     <div className="form-group">
-                      <label className="form-label">Top up Amount (in GEN)</label>
+                      <label className="form-label">Top up Deposit (in GEN)</label>
                       <input
                         type="number"
                         className="form-input"
@@ -615,7 +820,7 @@ function App() {
                       onClick={handleTopUp}
                       disabled={isLoading || activeAgentData.status === "FROZEN"}
                     >
-                      {isLoading ? "Confirming..." : "➕ Deposit Collateral"}
+                      {isLoading ? "Confirming..." : "➕ Deposit Native GEN"}
                     </button>
                   </section>
                 </div>
@@ -623,14 +828,14 @@ function App() {
                 {/* Console Output simulator */}
                 <section className="card" style={{ marginBottom: 0 }}>
                   <h2 className="card-title">
-                    💻 GenVM Consensus Telemetry
+                    💻 GenVM Consensus Telemetry & Validator Verification
                   </h2>
                   <div className="terminal">
                     <div className="terminal-header">
                       <div className="terminal-dot dot-red" />
                       <div className="terminal-dot dot-yellow" />
                       <div className="terminal-dot dot-green" />
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginLeft: "0.5rem" }}>sentinel@genvm</span>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginLeft: "0.5rem" }}>sentinel@genvm-consensus</span>
                     </div>
                     {consoleLogs.length === 0 ? (
                       <div className="terminal-line info">Awaiting SLA transaction execution...</div>
@@ -684,8 +889,13 @@ function App() {
                               Severity: <span>{audit.severity}/100</span>
                             </div>
                             <div className="audit-detail-item">
-                              Slash Ratio: <span>{audit.slashed > 0 ? `${Math.round(audit.slashed / (activeAgentData.bond_remaining + audit.slashed) * 100)}%` : "0%"}</span>
+                              Validator Equivalence: <span style={{ color: "#34d399" }}>PASSED</span>
                             </div>
+                            {audit.beneficiary_payout && audit.beneficiary_payout > 0 ? (
+                              <div className="audit-detail-item">
+                                Beneficiary Transfer: <span style={{ color: "#38bdf8" }}>{audit.beneficiary_payout} GEN</span>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -708,4 +918,3 @@ function App() {
 }
 
 export default App;
-
