@@ -5,7 +5,7 @@
 By utilizing GenLayer's non-deterministic web rendering and LLM-driven multi-node consensus, BondKeep translates unstructured log files and plain-English commitments into automated, cryptographically backed financial enforcement—without centralized API oracles or human intermediaries.
 
 * **Live Dashboard**: [bondkeep-woad.vercel.app](https://bondkeep-woad.vercel.app/)
-* **Deployed Contract Address (Studionet)**: `0x57710BABD63200A266dFcE8CAb72373AE09933f3`
+* **Deployed Contract Address (Studionet)**: `0xbBC068502FFF2a8AfB205Fa43D8950FcD488B3D9`
 
 ---
 
