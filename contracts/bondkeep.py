@@ -87,7 +87,7 @@ class BondKeep(gl.Contract):
                     try:
                         behavior = gl.nondet.web.render(ev_url_val, mode="text")
                     except Exception as e:
-                        behavior = f"Telemetry Log Source: {ev_url_val} [Load Error: {str(e)}]"
+                        behavior = f"Telemetry Source: {ev_url_val} [Error: {str(e)}]"
                 else:
                     behavior = ev_url_val
                 
@@ -101,12 +101,45 @@ class BondKeep(gl.Contract):
                 "- If behavior logs contain status=COMPLIANT and normal trades, return verdict='COMPLIANT', severity=0, slash_ratio=0.\n"
                 "- Otherwise, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
                 "Return JSON with exact shape:\n"
-                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true, "reasoning": "brief description"}'
+                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true}'
             )
             response = gl.nondet.exec_prompt(task, response_format="json")
-            if isinstance(response, dict):
-                return json.dumps(response)
-            return str(response)
+            
+            # Canonical normalization to guarantee bit-for-bit equivalence across validator nodes
+            verdict = "VIOLATION"
+            severity = 80
+            slash_ratio = 50
+            telemetry_valid = True
+            
+            try:
+                if isinstance(response, dict):
+                    raw_dict = response
+                else:
+                    try:
+                        raw_dict = json.loads(str(response))
+                    except Exception:
+                        raw_dict = ast.literal_eval(str(response))
+                if isinstance(raw_dict, dict):
+                    v = str(raw_dict.get("verdict", "")).upper()
+                    if v in ["COMPLIANT", "WARNING", "VIOLATION"]:
+                        verdict = v
+                    s = int(raw_dict.get("severity", 80))
+                    if 0 <= s <= 100:
+                        severity = s
+                    sr = int(raw_dict.get("slash_ratio", 50))
+                    if 0 <= sr <= 100:
+                        slash_ratio = min(sr, cap_val)
+                    telemetry_valid = bool(raw_dict.get("telemetry_valid", True))
+            except Exception:
+                pass
+                
+            canonical_payload = {
+                "verdict": verdict,
+                "severity": severity,
+                "slash_ratio": slash_ratio,
+                "telemetry_valid": telemetry_valid
+            }
+            return json.dumps(canonical_payload, sort_keys=True)
 
         def validator_fn(leader_result) -> bool:
             if not leader_result:
@@ -154,9 +187,9 @@ class BondKeep(gl.Contract):
                 except Exception:
                     report = ast.literal_eval(str(result))
             if not isinstance(report, dict):
-                report = {"verdict": "VIOLATION", "severity": 80, "slash_ratio": 50, "telemetry_valid": True, "reasoning": "Audit finalized"}
+                report = {"verdict": "VIOLATION", "severity": 80, "slash_ratio": 50, "telemetry_valid": True}
         except Exception:
-            report = {"verdict": "VIOLATION", "severity": 80, "slash_ratio": 50, "telemetry_valid": True, "reasoning": "Audit finalized"}
+            report = {"verdict": "VIOLATION", "severity": 80, "slash_ratio": 50, "telemetry_valid": True}
             
         severity = int(report.get("severity", 80))
         requested_slash_ratio = int(report.get("slash_ratio", 50))
@@ -201,7 +234,7 @@ class BondKeep(gl.Contract):
             "reporter_payout": reporter_payout,
             "treasury_payout": treasury_payout,
             "telemetry_valid": report.get("telemetry_valid", True),
-            "reasoning": report.get("reasoning", "")
+            "reasoning": f"Audit completed with verdict {verdict} and severity {severity}"
         }
         
         self.audit_records[f"{agent_id}#{audit_idx}"] = json.dumps(audit_data)
