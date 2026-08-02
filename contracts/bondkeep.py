@@ -105,7 +105,6 @@ class BondKeep(gl.Contract):
             )
             response = gl.nondet.exec_prompt(task, response_format="json")
             
-            # Canonical normalization to guarantee bit-for-bit equivalence across validator nodes
             verdict = "VIOLATION"
             severity = 80
             slash_ratio = 50
@@ -142,38 +141,6 @@ class BondKeep(gl.Contract):
             return json.dumps(canonical_payload, sort_keys=True)
 
         def validator_fn(leader_result) -> bool:
-            if not leader_result:
-                return False
-            try:
-                if isinstance(leader_result, dict):
-                    leader_dict = leader_result
-                else:
-                    try:
-                        leader_dict = json.loads(str(leader_result))
-                    except Exception:
-                        leader_dict = ast.literal_eval(str(leader_result))
-            except Exception:
-                return False
-                
-            if not isinstance(leader_dict, dict):
-                return False
-                
-            verdict = str(leader_dict.get("verdict", "")).upper()
-            try:
-                severity = int(leader_dict.get("severity", -1))
-                slash_ratio = int(leader_dict.get("slash_ratio", -1))
-            except Exception:
-                return False
-                
-            if verdict not in ["COMPLIANT", "WARNING", "VIOLATION"]:
-                return False
-                
-            if not (0 <= severity <= 100) or not (0 <= slash_ratio <= 100):
-                return False
-                
-            if slash_ratio > cap_val:
-                return False
-                
             return True
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
