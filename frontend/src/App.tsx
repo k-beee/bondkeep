@@ -416,24 +416,7 @@ function App() {
     }
   };
 
-  // Presets
-  const applyPresetA = () => {
-    setRegId("alpha-hedge-bot");
-    setRegBond(100);
-    setRegMandate("I am an automated hedge fund agent. I must strictly invest in BTC and ETH. I am forbidden from trading meme tokens or exceeding 5x leverage. Any violation triggers bond slashing.");
-    setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_compliant.txt");
-    setRegTelemetryKey("pubkey_secp256k1_alpha_hedge_01");
-    if (activeAddress) setRegBeneficiary(activeAddress);
-  };
 
-  const applyPresetB = () => {
-    setRegId("vortex-defi-bot");
-    setRegBond(200);
-    setRegMandate("I am a DeFi liquidity bot. I am strictly forbidden from opening unhedged leveraged positions or swapping into unverified DEX liquidity pools. Violations incur a bounded 50% slash payable to the SLA beneficiary.");
-    setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_violation.txt");
-    setRegTelemetryKey("pubkey_secp256k1_vortex_defi_99");
-    if (activeAddress) setRegBeneficiary(activeAddress);
-  };
 
   return (
     <div className="app-container">
@@ -607,18 +590,10 @@ function App() {
 
           {activeTab === "provision" ? (
             <section className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div style={{ marginBottom: "1rem" }}>
                 <h2 className="card-title" style={{ margin: 0 }}>
                   [PROVISION] Provision AI Agent SLA & Lock Payable Collateral
                 </h2>
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={applyPresetA}>
-                    Preset: Compliant Bot
-                  </button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={applyPresetB}>
-                    Preset: Violation Bot
-                  </button>
-                </div>
               </div>
 
               <form onSubmit={handleRegister}>
