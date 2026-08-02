@@ -2,7 +2,7 @@ import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
 // Read from env or fallback to a standard deployment placeholder
-export const CONTRACT_ADDRESS = (import.meta.env.VITE_BONDKEEP_CONTRACT_ADDRESS || "0xbBC068502FFF2a8AfB205Fa43D8950FcD488B3D9") as `0x${string}`;
+export const CONTRACT_ADDRESS = (import.meta.env.VITE_BONDKEEP_CONTRACT_ADDRESS || "0x8Db093685c68FC7E91001153a5378bdDa4850483") as `0x${string}`;
 export const RPC_URL = import.meta.env.VITE_GENLAYER_RPC_URL || "https://studio.genlayer.com/api";
 
 export { generatePrivateKey };
