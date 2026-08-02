@@ -44,7 +44,7 @@ class BondKeep(gl.Contract):
         self.agent_evidence_urls[agent_id] = evidence_url
         self.agent_bonds[agent_id] = bond_amount
         self.agent_status[agent_id] = "ACTIVE"
-        self.agent_owners[agent_id] = gl.message.sender.as_hex
+        self.agent_owners[agent_id] = gl.message.sender_address.as_hex
         self.agent_beneficiaries[agent_id] = beneficiary
         self.agent_telemetry_keys[agent_id] = telemetry_key
         self.audit_counts[agent_id] = u256(0)
@@ -207,33 +207,33 @@ class BondKeep(gl.Contract):
     def withdraw_unslashed_bond(self, agent_id: str) -> str:
         if agent_id not in self.agent_status:
             return "{}"
-        if gl.message.sender.as_hex != self.agent_owners[agent_id]:
+        if gl.message.sender_address.as_hex != self.agent_owners[agent_id]:
             return "{}"
             
         current_bond = int(self.agent_bonds[agent_id])
         if current_bond > 0:
             self.agent_bonds[agent_id] = u256(0)
             self.agent_status[agent_id] = "RETIRED"
-            gl.transfer(gl.message.sender, u256(current_bond))
+            gl.transfer(gl.message.sender_address, u256(current_bond))
             
         return self.get_agent(agent_id)
 
     @gl.public.write
     def claim_beneficiary_payout(self) -> int:
-        ben_addr_str = gl.message.sender.as_hex
+        ben_addr_str = gl.message.sender_address.as_hex
         amount = int(self.beneficiary_claims.get(ben_addr_str, u256(0)))
         if amount > 0:
             self.beneficiary_claims[ben_addr_str] = u256(0)
-            gl.transfer(gl.message.sender, u256(amount))
+            gl.transfer(gl.message.sender_address, u256(amount))
         return amount
 
     @gl.public.write
     def claim_reporter_bounty(self) -> int:
-        rep_addr_str = gl.message.sender.as_hex
+        rep_addr_str = gl.message.sender_address.as_hex
         amount = int(self.reporter_claims.get(rep_addr_str, u256(0)))
         if amount > 0:
             self.reporter_claims[rep_addr_str] = u256(0)
-            gl.transfer(gl.message.sender, u256(amount))
+            gl.transfer(gl.message.sender_address, u256(amount))
         return amount
 
     @gl.public.view
