@@ -9,13 +9,13 @@ class BondKeep(gl.Contract):
     agent_evidence_urls: TreeMap[str, str]    # agent_id -> URL for behavior logs
     agent_bonds: TreeMap[str, u256]            # agent_id -> locked escrow bond balance
     agent_status: TreeMap[str, str]           # agent_id -> "ACTIVE" | "FROZEN" | "RETIRED"
-    agent_owners: TreeMap[str, Address]       # agent_id -> owner/deployer address
-    agent_beneficiaries: TreeMap[str, Address]# agent_id -> SLA beneficiary address
+    agent_owners: TreeMap[str, str]           # agent_id -> owner/deployer hex address
+    agent_beneficiaries: TreeMap[str, str]    # agent_id -> SLA beneficiary hex address
     agent_telemetry_keys: TreeMap[str, str]   # agent_id -> authorized telemetry signer pubkey
     
     # Claimable balances (payable custody)
-    beneficiary_claims: TreeMap[Address, u256] # beneficiary_address -> claimable slashed funds
-    reporter_claims: TreeMap[Address, u256]    # reporter_address -> claimable auditor bounties
+    beneficiary_claims: TreeMap[str, u256]    # beneficiary_address_hex -> claimable slashed funds
+    reporter_claims: TreeMap[str, u256]       # reporter_address_hex -> claimable auditor bounties
     
     # Audit tracking mappings
     audit_counts: TreeMap[str, u256]           # agent_id -> count of audits
@@ -33,7 +33,7 @@ class BondKeep(gl.Contract):
 
     @gl.public.write.payable
     def register_agent(self, agent_id: str, mandate: str,
-                       evidence_url: str, beneficiary: Address,
+                       evidence_url: str, beneficiary: str,
                        telemetry_key: str) -> str:
         if agent_id in self.agent_status:
             return self.get_agent(agent_id)
@@ -44,7 +44,7 @@ class BondKeep(gl.Contract):
         self.agent_evidence_urls[agent_id] = evidence_url
         self.agent_bonds[agent_id] = bond_amount
         self.agent_status[agent_id] = "ACTIVE"
-        self.agent_owners[agent_id] = gl.message.sender
+        self.agent_owners[agent_id] = gl.message.sender.as_hex
         self.agent_beneficiaries[agent_id] = beneficiary
         self.agent_telemetry_keys[agent_id] = telemetry_key
         self.audit_counts[agent_id] = u256(0)
@@ -68,7 +68,7 @@ class BondKeep(gl.Contract):
         return self.get_agent(agent_id)
 
     @gl.public.write
-    def audit(self, agent_id: str, reporter: str, reporter_payout_addr: Address) -> str:
+    def audit(self, agent_id: str, reporter: str, reporter_payout_addr: str) -> str:
         if agent_id not in self.agent_status:
             return "{}"
         if self.agent_status[agent_id] == "FROZEN":
@@ -102,7 +102,6 @@ class BondKeep(gl.Contract):
 
         def validator_fn(leader_result) -> bool:
             # Independent Validator Verification
-            # 1. Parse leader result structure
             if not isinstance(leader_result, dict):
                 try:
                     leader_dict = json.loads(leader_result)
@@ -115,7 +114,7 @@ class BondKeep(gl.Contract):
             leader_severity = int(leader_dict.get("severity", 0))
             leader_slash = int(leader_dict.get("slash_ratio", 0))
             
-            # 2. Re-fetch telemetry & evaluate independently on validator node
+            # Re-fetch telemetry & evaluate independently on validator node
             behavior = ""
             if ev_url:
                 behavior = gl.nondet.web.render(ev_url, mode="text")
@@ -137,7 +136,7 @@ class BondKeep(gl.Contract):
             val_verdict = str(val_dict.get("verdict", ""))
             val_severity = int(val_dict.get("severity", 0))
             
-            # 3. Equivalence Verification Criteria:
+            # Equivalence Verification Criteria:
             severity_diff = abs(leader_severity - val_severity)
             verdict_match = (leader_verdict == val_verdict)
             slash_valid = (0 <= leader_slash <= 100)
@@ -188,7 +187,7 @@ class BondKeep(gl.Contract):
         audit_idx = int(self.audit_counts.get(agent_id, u256(0)))
         audit_data = {
             "reporter": reporter,
-            "reporter_address": reporter_payout_addr.as_hex,
+            "reporter_address": reporter_payout_addr,
             "verdict": verdict,
             "severity": severity,
             "slashed": slashed,
@@ -208,7 +207,7 @@ class BondKeep(gl.Contract):
     def withdraw_unslashed_bond(self, agent_id: str) -> str:
         if agent_id not in self.agent_status:
             return "{}"
-        if gl.message.sender != self.agent_owners[agent_id]:
+        if gl.message.sender.as_hex != self.agent_owners[agent_id]:
             return "{}"
             
         current_bond = int(self.agent_bonds[agent_id])
@@ -221,20 +220,20 @@ class BondKeep(gl.Contract):
 
     @gl.public.write
     def claim_beneficiary_payout(self) -> int:
-        ben_addr = gl.message.sender
-        amount = int(self.beneficiary_claims.get(ben_addr, u256(0)))
+        ben_addr_str = gl.message.sender.as_hex
+        amount = int(self.beneficiary_claims.get(ben_addr_str, u256(0)))
         if amount > 0:
-            self.beneficiary_claims[ben_addr] = u256(0)
-            gl.transfer(ben_addr, u256(amount))
+            self.beneficiary_claims[ben_addr_str] = u256(0)
+            gl.transfer(gl.message.sender, u256(amount))
         return amount
 
     @gl.public.write
     def claim_reporter_bounty(self) -> int:
-        rep_addr = gl.message.sender
-        amount = int(self.reporter_claims.get(rep_addr, u256(0)))
+        rep_addr_str = gl.message.sender.as_hex
+        amount = int(self.reporter_claims.get(rep_addr_str, u256(0)))
         if amount > 0:
-            self.reporter_claims[rep_addr] = u256(0)
-            gl.transfer(rep_addr, u256(amount))
+            self.reporter_claims[rep_addr_str] = u256(0)
+            gl.transfer(gl.message.sender, u256(amount))
         return amount
 
     @gl.public.view
@@ -258,8 +257,8 @@ class BondKeep(gl.Contract):
             "evidence_url": self.agent_evidence_urls[agent_id],
             "bond_remaining": int(self.agent_bonds[agent_id]),
             "status": self.agent_status[agent_id],
-            "owner": owner_addr.as_hex,
-            "beneficiary": ben_addr.as_hex,
+            "owner": owner_addr,
+            "beneficiary": ben_addr,
             "telemetry_key": self.agent_telemetry_keys[agent_id],
             "audits": audits_list
         }
@@ -270,9 +269,9 @@ class BondKeep(gl.Contract):
         return int(self.penalty_pool)
 
     @gl.public.view
-    def get_beneficiary_claimable(self, account: Address) -> int:
+    def get_beneficiary_claimable(self, account: str) -> int:
         return int(self.beneficiary_claims.get(account, u256(0)))
 
     @gl.public.view
-    def get_reporter_claimable(self, account: Address) -> int:
+    def get_reporter_claimable(self, account: str) -> int:
         return int(self.reporter_claims.get(account, u256(0)))
