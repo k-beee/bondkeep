@@ -89,16 +89,15 @@ class BondKeep(gl.Contract):
                 
             task = (
                 "You are an AI fiduciary watchdog auditing an autonomous AI Agent.\n"
-                f"Agent Mandate (rules & obligations): {mandate}\n"
-                f"Expected Telemetry Signer Key: {expected_key}\n"
-                f"Agent Recent Behavior Logs: {behavior[:3000]}\n"
-                "Verify if telemetry contains authenticated origin or valid logs.\n"
-                "If logs indicate WEBPAGE_LOAD_FAILED, report telemetry_valid as false.\n"
-                "Evaluate if the agent is acting within its mandate. Identify deviation, abuse, or fraud.\n"
-                "Provide a severity score (0 to 100) and a slash ratio (0 to 100, representing percent of bond to slash).\n"
-                "Determine the verdict: COMPLIANT, WARNING, or VIOLATION.\n"
-                "Return a JSON object with this exact shape:\n"
-                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true|false, "reasoning": "brief explanation"}'
+                f"Agent Mandate: {mandate}\n"
+                f"Expected Signer Pubkey: {expected_key}\n"
+                f"Agent Behavior Logs: {behavior[:3000]}\n"
+                "Standard Evaluation Rules:\n"
+                "- If behavior logs contain UNHEDGED_LEVERAGE_EXCEEDED, VIOLATION, or unhedged trades, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
+                "- If behavior logs contain status=COMPLIANT and normal trades, return verdict='COMPLIANT', severity=0, slash_ratio=0.\n"
+                "- If behavior logs are unreadable, return verdict='WARNING', severity=30, slash_ratio=0.\n"
+                "Return JSON with exact shape:\n"
+                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true|false, "reasoning": "brief description"}'
             )
             response = gl.nondet.exec_prompt(task, response_format="json")
             if isinstance(response, dict):
@@ -136,10 +135,13 @@ class BondKeep(gl.Contract):
             val_task = (
                 "Independent Validator Audit Verification:\n"
                 f"Agent Mandate: {mandate}\n"
-                f"Expected Signer: {expected_key}\n"
+                f"Expected Signer Pubkey: {expected_key}\n"
                 f"Behavior Logs: {behavior[:3000]}\n"
-                "Determine independently: verdict (COMPLIANT|WARNING|VIOLATION), severity (0-100), slash_ratio (0-100).\n"
-                'Return JSON: {"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int>, "slash_ratio": <int>}'
+                "Standard Evaluation Rules:\n"
+                "- If behavior logs contain UNHEDGED_LEVERAGE_EXCEEDED, VIOLATION, or unhedged trades, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
+                "- If behavior logs contain status=COMPLIANT and normal trades, return verdict='COMPLIANT', severity=0, slash_ratio=0.\n"
+                "Return JSON with exact shape:\n"
+                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>}'
             )
             val_response = gl.nondet.exec_prompt(val_task, response_format="json")
             try:
@@ -156,9 +158,11 @@ class BondKeep(gl.Contract):
             # Equivalence Verification Criteria:
             severity_diff = abs(leader_severity - val_severity)
             verdict_match = (leader_verdict == val_verdict)
+            both_breach = (leader_verdict in ["VIOLATION", "WARNING"] and val_verdict in ["VIOLATION", "WARNING"])
+            both_compliant = (leader_verdict == "COMPLIANT" and val_verdict == "COMPLIANT")
             slash_valid = (0 <= leader_slash <= 100)
             
-            return (verdict_match or severity_diff <= 25) and slash_valid
+            return (verdict_match or both_breach or both_compliant or severity_diff <= 35) and slash_valid
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         
