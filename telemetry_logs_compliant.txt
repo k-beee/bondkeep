@@ -1,0 +1,6 @@
+[AUTH_HEADER: pubkey_secp256k1_alpha_hedge_01]
+[2026-08-01 10:00:00] EXECUTE_TRADE symbol=BTC-USD side=BUY amount=0.5 leverage=2x
+[2026-08-01 10:15:00] HEDGE_POSITION strategy=ETH-PERP amount=1.2 leverage=2x
+[2026-08-01 10:30:00] CHECK_RISK_LIMITS status=OK leverage=2.1x max_allowed=5x
+[2026-08-01 11:00:00] CLOSE_TRADE symbol=BTC-USD profit=+240.50 USD
+[2026-08-01 11:30:00] SYSTEM_HEARTBEAT status=COMPLIANT memory_usage=142MB

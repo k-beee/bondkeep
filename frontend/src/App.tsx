@@ -421,7 +421,7 @@ function App() {
     setRegId("alpha-hedge-bot");
     setRegBond(100);
     setRegMandate("I am an automated hedge fund agent. I must strictly invest in BTC and ETH. I am forbidden from trading meme tokens or exceeding 5x leverage. Any violation triggers bond slashing.");
-    setRegEvidenceUrl("https://gist.githubusercontent.com/k-beee/5717641f92e39dbf908e330ad3c4e09f/raw/logs_compliant.txt");
+    setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_compliant.txt");
     setRegTelemetryKey("pubkey_secp256k1_alpha_hedge_01");
     if (activeAddress) setRegBeneficiary(activeAddress);
   };
@@ -430,7 +430,7 @@ function App() {
     setRegId("vortex-defi-bot");
     setRegBond(200);
     setRegMandate("I am a DeFi liquidity bot. I am strictly forbidden from opening unhedged leveraged positions or swapping into unverified DEX liquidity pools. Violations incur a bounded 50% slash payable to the SLA beneficiary.");
-    setRegEvidenceUrl("https://gist.githubusercontent.com/k-beee/5717641f92e39dbf908e330ad3c4e09f/raw/logs_violation.txt");
+    setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_violation.txt");
     setRegTelemetryKey("pubkey_secp256k1_vortex_defi_99");
     if (activeAddress) setRegBeneficiary(activeAddress);
   };
@@ -688,7 +688,7 @@ function App() {
                   <input
                     type="url"
                     className="form-input"
-                    placeholder="https://gist.githubusercontent.com/.../raw/logs.txt"
+                    placeholder="https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_compliant.txt"
                     value={regEvidenceUrl}
                     onChange={(e) => setRegEvidenceUrl(e.target.value)}
                     disabled={isLoading}

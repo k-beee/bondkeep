@@ -81,7 +81,10 @@ class BondKeep(gl.Contract):
         def leader_fn():
             behavior = ""
             if ev_url:
-                behavior = gl.nondet.web.render(ev_url, mode="text")
+                try:
+                    behavior = gl.nondet.web.render(ev_url, mode="text")
+                except Exception as e:
+                    behavior = f"[WEBPAGE_LOAD_FAILED: {str(e)}]"
                 
             task = (
                 "You are an AI fiduciary watchdog auditing an autonomous AI Agent.\n"
@@ -89,6 +92,7 @@ class BondKeep(gl.Contract):
                 f"Expected Telemetry Signer Key: {expected_key}\n"
                 f"Agent Recent Behavior Logs: {behavior[:3000]}\n"
                 "Verify if telemetry contains authenticated origin or valid logs.\n"
+                "If logs indicate WEBPAGE_LOAD_FAILED, report telemetry_valid as false.\n"
                 "Evaluate if the agent is acting within its mandate. Identify deviation, abuse, or fraud.\n"
                 "Provide a severity score (0 to 100) and a slash ratio (0 to 100, representing percent of bond to slash).\n"
                 "Determine the verdict: COMPLIANT, WARNING, or VIOLATION.\n"
@@ -117,7 +121,10 @@ class BondKeep(gl.Contract):
             # Re-fetch telemetry & evaluate independently on validator node
             behavior = ""
             if ev_url:
-                behavior = gl.nondet.web.render(ev_url, mode="text")
+                try:
+                    behavior = gl.nondet.web.render(ev_url, mode="text")
+                except Exception as e:
+                    behavior = f"[WEBPAGE_LOAD_FAILED: {str(e)}]"
                 
             val_task = (
                 "Independent Validator Audit Verification:\n"
