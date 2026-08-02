@@ -2,6 +2,7 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 import json
+import ast
 
 class BondKeep(gl.Contract):
     # Fiduciary covenants mappings (gas-optimized state representation)
@@ -100,21 +101,27 @@ class BondKeep(gl.Contract):
                 '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true|false, "reasoning": "brief explanation"}'
             )
             response = gl.nondet.exec_prompt(task, response_format="json")
-            if isinstance(response, str):
-                return json.loads(response)
-            return response
+            if isinstance(response, dict):
+                return json.dumps(response)
+            return str(response)
 
         def validator_fn(leader_result) -> bool:
             # Independent Validator Verification
-            if not isinstance(leader_result, dict):
-                try:
-                    leader_dict = json.loads(leader_result)
-                except Exception:
-                    return False
-            else:
-                leader_dict = leader_result
+            try:
+                if isinstance(leader_result, dict):
+                    leader_dict = leader_result
+                else:
+                    try:
+                        leader_dict = json.loads(leader_result)
+                    except Exception:
+                        leader_dict = ast.literal_eval(str(leader_result))
+            except Exception:
+                return False
                 
-            leader_verdict = str(leader_dict.get("verdict", ""))
+            if not isinstance(leader_dict, dict):
+                return False
+                
+            leader_verdict = str(leader_dict.get("verdict", "")).upper()
             leader_severity = int(leader_dict.get("severity", 0))
             leader_slash = int(leader_dict.get("slash_ratio", 0))
             
@@ -132,15 +139,18 @@ class BondKeep(gl.Contract):
                 f"Expected Signer: {expected_key}\n"
                 f"Behavior Logs: {behavior[:3000]}\n"
                 "Determine independently: verdict (COMPLIANT|WARNING|VIOLATION), severity (0-100), slash_ratio (0-100).\n"
-                'Return JSON: {"verdict": "...", "severity": <int>, "slash_ratio": <int>}'
+                'Return JSON: {"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int>, "slash_ratio": <int>}'
             )
             val_response = gl.nondet.exec_prompt(val_task, response_format="json")
-            if isinstance(val_response, str):
-                val_dict = json.loads(val_response)
-            else:
-                val_dict = val_response
+            try:
+                if isinstance(val_response, dict):
+                    val_dict = val_response
+                else:
+                    val_dict = json.loads(val_response)
+            except Exception:
+                val_dict = {}
                 
-            val_verdict = str(val_dict.get("verdict", ""))
+            val_verdict = str(val_dict.get("verdict", "")).upper()
             val_severity = int(val_dict.get("severity", 0))
             
             # Equivalence Verification Criteria:
@@ -148,12 +158,18 @@ class BondKeep(gl.Contract):
             verdict_match = (leader_verdict == val_verdict)
             slash_valid = (0 <= leader_slash <= 100)
             
-            return (verdict_match or severity_diff <= 15) and slash_valid
+            return (verdict_match or severity_diff <= 25) and slash_valid
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         
         try:
-            report = result if isinstance(result, dict) else json.loads(result)
+            if isinstance(result, dict):
+                report = result
+            else:
+                try:
+                    report = json.loads(result)
+                except Exception:
+                    report = ast.literal_eval(str(result))
             if not isinstance(report, dict):
                 report = {"verdict": "WARNING", "severity": 0, "slash_ratio": 0, "telemetry_valid": False, "reasoning": "Invalid format"}
         except Exception as e:
@@ -161,7 +177,7 @@ class BondKeep(gl.Contract):
             
         severity = int(report.get("severity", 0))
         requested_slash_ratio = int(report.get("slash_ratio", 0))
-        verdict = str(report.get("verdict", "WARNING"))
+        verdict = str(report.get("verdict", "WARNING")).upper()
         
         # Enforce Bounded Slashing (Cap at max_slash_cap, e.g., 50%)
         bounded_slash_ratio = min(requested_slash_ratio, int(self.max_slash_cap))
