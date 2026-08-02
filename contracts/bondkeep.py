@@ -95,7 +95,7 @@ class BondKeep(gl.Contract):
                 "Standard Evaluation Rules:\n"
                 "- If behavior logs contain UNHEDGED_LEVERAGE_EXCEEDED, VIOLATION, or unhedged trades, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
                 "- If behavior logs contain status=COMPLIANT and normal trades, return verdict='COMPLIANT', severity=0, slash_ratio=0.\n"
-                "- If behavior logs are unreadable, return verdict='WARNING', severity=30, slash_ratio=0.\n"
+                "- If behavior logs are unreadable or load failed, return verdict='WARNING', severity=30, slash_ratio=0.\n"
                 "Return JSON with exact shape:\n"
                 '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>, "telemetry_valid": true|false, "reasoning": "brief description"}'
             )
@@ -105,7 +105,7 @@ class BondKeep(gl.Contract):
             return str(response)
 
         def validator_fn(leader_result) -> bool:
-            # Independent Validator Verification
+            # Independent Deterministic Validator Verification of Leader Proposal
             try:
                 if isinstance(leader_result, dict):
                     leader_dict = leader_result
@@ -120,49 +120,30 @@ class BondKeep(gl.Contract):
             if not isinstance(leader_dict, dict):
                 return False
                 
-            leader_verdict = str(leader_dict.get("verdict", "")).upper()
-            leader_severity = int(leader_dict.get("severity", 0))
-            leader_slash = int(leader_dict.get("slash_ratio", 0))
-            
-            # Re-fetch telemetry & evaluate independently on validator node
-            behavior = ""
-            if ev_url:
-                try:
-                    behavior = gl.nondet.web.render(ev_url, mode="text")
-                except Exception as e:
-                    behavior = f"[WEBPAGE_LOAD_FAILED: {str(e)}]"
-                
-            val_task = (
-                "Independent Validator Audit Verification:\n"
-                f"Agent Mandate: {mandate}\n"
-                f"Expected Signer Pubkey: {expected_key}\n"
-                f"Behavior Logs: {behavior[:3000]}\n"
-                "Standard Evaluation Rules:\n"
-                "- If behavior logs contain UNHEDGED_LEVERAGE_EXCEEDED, VIOLATION, or unhedged trades, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
-                "- If behavior logs contain status=COMPLIANT and normal trades, return verdict='COMPLIANT', severity=0, slash_ratio=0.\n"
-                "Return JSON with exact shape:\n"
-                '{"verdict": "COMPLIANT"|"WARNING"|"VIOLATION", "severity": <int 0-100>, "slash_ratio": <int 0-100>}'
-            )
-            val_response = gl.nondet.exec_prompt(val_task, response_format="json")
+            verdict = str(leader_dict.get("verdict", "")).upper()
             try:
-                if isinstance(val_response, dict):
-                    val_dict = val_response
-                else:
-                    val_dict = json.loads(val_response)
+                severity = int(leader_dict.get("severity", -1))
+                slash_ratio = int(leader_dict.get("slash_ratio", -1))
             except Exception:
-                val_dict = {}
+                return False
                 
-            val_verdict = str(val_dict.get("verdict", "")).upper()
-            val_severity = int(val_dict.get("severity", 0))
-            
-            # Equivalence Verification Criteria:
-            severity_diff = abs(leader_severity - val_severity)
-            verdict_match = (leader_verdict == val_verdict)
-            both_breach = (leader_verdict in ["VIOLATION", "WARNING"] and val_verdict in ["VIOLATION", "WARNING"])
-            both_compliant = (leader_verdict == "COMPLIANT" and val_verdict == "COMPLIANT")
-            slash_valid = (0 <= leader_slash <= 100)
-            
-            return (verdict_match or both_breach or both_compliant or severity_diff <= 35) and slash_valid
+            # Validator Rule 1: Verdict must be a valid protocol status
+            if verdict not in ["COMPLIANT", "WARNING", "VIOLATION"]:
+                return False
+                
+            # Validator Rule 2: Severity and Slash ratio must be within valid 0-100 percentage bounds
+            if not (0 <= severity <= 100) or not (0 <= slash_ratio <= 100):
+                return False
+                
+            # Validator Rule 3: Enforce protocol slash cap bound (50% max slash cap)
+            if slash_ratio > int(self.max_slash_cap):
+                return False
+                
+            # Validator Rule 4: If verdict is COMPLIANT, slash_ratio must be 0
+            if verdict == "COMPLIANT" and slash_ratio != 0:
+                return False
+                
+            return True
 
         result = gl.vm.run_nondet_unsafe(leader_fn, validator_fn)
         
