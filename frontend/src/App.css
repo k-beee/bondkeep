@@ -1,4 +1,4 @@
-/* 🛡️ BondKeep Design System (Memoria DA Cyber-Matrix Inspired) */
+/* 🛡️ BondKeep Design System (Memoria DA Typography & Cyber-Matrix Inspired) */
 
 :root {
   --bg-main: #060814;
@@ -24,8 +24,9 @@
   --accent-purple: #7c3aed;
   --accent-violet: #b364ff;
   
-  --font-heading: 'Syne', sans-serif;
-  --font-body: 'Outfit', sans-serif;
+  /* Memoria DA Monospaced Typography System */
+  --font-heading: 'JetBrains Mono', "Fira Code", "Courier New", monospace;
+  --font-body: 'JetBrains Mono', "Inter", monospace;
   --font-mono: 'JetBrains Mono', monospace;
   
   --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -37,7 +38,7 @@
   padding: 0;
 }
 
-/* Memoria DA Inspired Matrix Dot-Grid Background */
+/* Memoria DA Matrix Dot-Grid Background & Monospaced Typography */
 body {
   background-color: var(--bg-main);
   background-image: 
@@ -48,6 +49,7 @@ body {
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-body);
+  letter-spacing: .03em;
   overflow-x: hidden;
   min-height: 100vh;
 }
@@ -98,7 +100,7 @@ body {
 
 .logo-sentinel h1 {
   font-family: var(--font-heading);
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--text-primary);
@@ -139,15 +141,15 @@ body {
 }
 
 .brand-badge {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   padding: 0.25rem 0.65rem;
   background: rgba(124, 58, 237, 0.12);
   border: 1px solid rgba(124, 58, 237, 0.4);
   border-radius: 99px;
   color: var(--accent-violet);
   font-family: var(--font-mono);
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -162,10 +164,11 @@ body {
   border: 1px solid var(--border-color);
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  font-family: var(--font-mono);
   transition: var(--transition-smooth);
 }
 
@@ -216,6 +219,7 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   position: relative;
   overflow: hidden;
+  font-family: var(--font-body);
 }
 
 .card::before {
@@ -235,14 +239,15 @@ body {
 
 .card-title {
   font-family: var(--font-heading);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
   margin-bottom: 1.25rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
   color: var(--text-primary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* Wallet Widget */
@@ -255,13 +260,14 @@ body {
   border: 1px solid rgba(179, 100, 255, 0.15);
   padding: 1rem;
   border-radius: 8px;
+  font-family: var(--font-mono);
 }
 
 .account-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .account-key {
@@ -298,10 +304,11 @@ body {
 }
 
 .pool-desc {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
   margin-top: 0.4rem;
-  line-height: 1.4;
+  line-height: 1.45;
+  font-family: var(--font-mono);
 }
 
 /* Monitored Registry */
@@ -341,17 +348,17 @@ body {
 .registry-id {
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-primary);
 }
 
 .status-badge {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   padding: 0.2rem 0.6rem;
   border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   font-family: var(--font-mono);
 }
 
@@ -381,12 +388,13 @@ body {
 
 .form-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-secondary);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  font-family: var(--font-mono);
 }
 
 .form-input, .form-textarea {
@@ -396,8 +404,8 @@ body {
   border-radius: 8px;
   padding: 0.85rem 1rem;
   color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 0.92rem;
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
   transition: var(--transition-smooth);
 }
 
@@ -426,12 +434,14 @@ body {
   gap: 0.6rem;
   padding: 0.85rem 1.5rem;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: var(--transition-smooth);
   border: 1px solid transparent;
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .btn-primary {
@@ -460,7 +470,7 @@ body {
 
 .btn-sm {
   padding: 0.45rem 0.85rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   border-radius: 6px;
 }
 
@@ -481,14 +491,14 @@ body {
 
 .agent-title-area h2 {
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
 .agent-url {
   color: var(--accent-cyan);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -513,8 +523,9 @@ body {
 .bond-header {
   display: flex;
   justify-content: space-between;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   margin-bottom: 0.65rem;
+  font-family: var(--font-mono);
 }
 
 .bond-title {
@@ -555,9 +566,10 @@ body {
   padding: 1rem 1.25rem;
   border-radius: 0 8px 8px 0;
   font-style: italic;
-  font-size: 0.93rem;
+  font-size: 0.9rem;
   color: #e2e8f0;
   line-height: 1.5;
+  font-family: var(--font-mono);
 }
 
 .action-box-grid {
@@ -577,7 +589,7 @@ body {
   border-radius: 8px;
   padding: 1.1rem;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   height: 200px;
   overflow-y: auto;
   display: flex;
@@ -631,6 +643,7 @@ body {
   flex-direction: column;
   gap: 0.65rem;
   transition: var(--transition-smooth);
+  font-family: var(--font-mono);
 }
 
 .audit-node.node-compliant { border-left: 4px solid var(--success); }
@@ -649,7 +662,7 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .audit-verdict.compliant { color: var(--success); }
@@ -672,7 +685,7 @@ body {
 }
 
 .audit-reasoning {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: var(--text-primary);
 }
@@ -703,6 +716,7 @@ body {
   background: rgba(255, 255, 255, 0.01);
   border: 1px dashed var(--border-color);
   border-radius: 12px;
+  font-family: var(--font-mono);
 }
 
 .empty-icon {
@@ -712,15 +726,16 @@ body {
 
 .empty-dashboard h3 {
   font-family: var(--font-heading);
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  text-transform: uppercase;
 }
 
 .empty-dashboard p {
   color: var(--text-secondary);
   max-width: 420px;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   line-height: 1.5;
 }
 
@@ -741,7 +756,7 @@ body {
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   padding: 0.65rem 1.4rem;
@@ -750,7 +765,9 @@ body {
   align-items: center;
   gap: 0.5rem;
   transition: var(--transition-smooth);
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .tab-btn:hover {
