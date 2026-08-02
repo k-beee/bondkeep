@@ -50,6 +50,7 @@ function App() {
   // Registry & Active Selection
   const [agentsRegistry, setAgentsRegistry] = useState<string[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
+  const [customAddId, setCustomAddId] = useState<string>("");
   const [activeAgentData, setActiveAgentData] = useState<AgentState | null>(null);
 
   // Tab Control
@@ -61,7 +62,7 @@ function App() {
   const [regEvidenceUrl, setRegEvidenceUrl] = useState<string>("");
   const [regBond, setRegBond] = useState<number>(100); // 100 GEN
   const [regBeneficiary, setRegBeneficiary] = useState<string>("");
-  const [regTelemetryKey, setRegTelemetryKey] = useState<string>("pubkey_ecdsa_secp256k1_alpha_01");
+  const [regTelemetryKey, setRegTelemetryKey] = useState<string>("pubkey_secp256k1_alpha_hedge_01");
 
   // Interaction Forms
   const [topUpAmount, setTopUpAmount] = useState<number>(50); // 50 GEN
@@ -80,6 +81,7 @@ function App() {
     }
     setPrivateKey(key);
 
+    const defaultAgents = ["alpha-hedge-bot", "vortex-defi-bot"];
     const savedAgents = localStorage.getItem("bondkeep_registered_agents");
     if (savedAgents) {
       try {
@@ -87,14 +89,19 @@ function App() {
         setAgentsRegistry(parsed);
         if (parsed.length > 0) {
           setSelectedAgentId(parsed[0]);
+        } else {
+          setAgentsRegistry(defaultAgents);
+          setSelectedAgentId(defaultAgents[0]);
         }
       } catch (e) {
         console.error("Failed to parse registry", e);
+        setAgentsRegistry(defaultAgents);
+        setSelectedAgentId(defaultAgents[0]);
       }
     } else {
-      setAgentsRegistry(["alpha-oracle-bot"]);
-      setSelectedAgentId("alpha-oracle-bot");
-      localStorage.setItem("bondkeep_registered_agents", JSON.stringify(["alpha-oracle-bot"]));
+      setAgentsRegistry(defaultAgents);
+      setSelectedAgentId(defaultAgents[0]);
+      localStorage.setItem("bondkeep_registered_agents", JSON.stringify(defaultAgents));
     }
   }, []);
 
@@ -149,14 +156,14 @@ function App() {
         const benClaim = await client.readContract({
           address: CONTRACT_ADDRESS,
           functionName: "get_beneficiary_claimable",
-          args: [activeAddress as `0x${string}`],
+          args: [activeAddress],
         });
         setBeneficiaryClaimable(Number(benClaim));
 
         const repClaim = await client.readContract({
           address: CONTRACT_ADDRESS,
           functionName: "get_reporter_claimable",
-          args: [activeAddress as `0x${string}`],
+          args: [activeAddress],
         });
         setReporterClaimable(Number(repClaim));
       }
@@ -187,6 +194,20 @@ function App() {
       console.error("Failed to load agent details", e);
       setActiveAgentData(null);
     }
+  };
+
+  // Add Custom Agent to sidebar tracker
+  const handleAddCustomAgent = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = customAddId.trim();
+    if (!cleanId) return;
+    if (!agentsRegistry.includes(cleanId)) {
+      const updated = [...agentsRegistry, cleanId];
+      setAgentsRegistry(updated);
+      localStorage.setItem("bondkeep_registered_agents", JSON.stringify(updated));
+    }
+    setSelectedAgentId(cleanId);
+    setCustomAddId("");
   };
 
   // Fund Account (Studionet only)
@@ -228,7 +249,7 @@ function App() {
           regId,
           regMandate,
           regEvidenceUrl,
-          regBeneficiary as `0x${string}`,
+          regBeneficiary,
           regTelemetryKey || "pubkey_default_secp256k1"
         ],
         value: BigInt(regBond),
@@ -320,7 +341,7 @@ function App() {
         args: [
           selectedAgentId,
           reporterName,
-          (activeAddress || "0x0000000000000000000000000000000000000000") as `0x${string}`
+          (activeAddress || "0x0000000000000000000000000000000000000000")
         ],
         value: 0n,
       });
@@ -416,7 +437,29 @@ function App() {
     }
   };
 
-
+  const prepareProvisionForm = (id: string) => {
+    if (id === "alpha-hedge-bot") {
+      setRegId("alpha-hedge-bot");
+      setRegBond(100);
+      setRegMandate("I am an automated hedge fund agent. I must strictly invest in BTC and ETH. I am forbidden from trading meme tokens or exceeding 5x leverage. Any violation triggers bond slashing.");
+      setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_compliant.txt");
+      setRegTelemetryKey("pubkey_secp256k1_alpha_hedge_01");
+    } else if (id === "vortex-defi-bot") {
+      setRegId("vortex-defi-bot");
+      setRegBond(200);
+      setRegMandate("I am a DeFi liquidity bot. I am strictly forbidden from opening unhedged leveraged positions or swapping into unverified DEX liquidity pools. Violations incur a bounded 50% slash payable to the SLA beneficiary.");
+      setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_violation.txt");
+      setRegTelemetryKey("pubkey_secp256k1_vortex_defi_99");
+    } else {
+      setRegId(id);
+      setRegBond(100);
+      setRegMandate("");
+      setRegEvidenceUrl("https://raw.githubusercontent.com/k-beee/bondkeep/main/telemetry_logs_compliant.txt");
+      setRegTelemetryKey("pubkey_secp256k1_default");
+    }
+    if (activeAddress) setRegBeneficiary(activeAddress);
+    setActiveTab("provision");
+  };
 
   return (
     <div className="app-container">
@@ -547,7 +590,7 @@ function App() {
           {/* Monitored Agents Registry */}
           <section className="card">
             <h2 className="card-title">
-              [REGISTRY] Active Covenants
+              [REGISTRY] Monitored Covenants
             </h2>
             {agentsRegistry.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No monitored agents.</p>
@@ -560,13 +603,28 @@ function App() {
                     onClick={() => setSelectedAgentId(id)}
                   >
                     <span className="registry-id">{id}</span>
-                    <span className={`status-badge ${(activeAgentData?.id === id ? activeAgentData.status : "ACTIVE").toLowerCase()}`}>
-                      {activeAgentData?.id === id ? activeAgentData.status : "ACTIVE"}
+                    <span className={`status-badge ${(activeAgentData?.id === id ? activeAgentData.status : "TRACKED").toLowerCase()}`}>
+                      {activeAgentData?.id === id ? activeAgentData.status : "TRACKED"}
                     </span>
                   </div>
                 ))}
               </div>
             )}
+
+            {/* Quick add agent ID */}
+            <form onSubmit={handleAddCustomAgent} style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+              <input
+                type="text"
+                className="form-input form-input-mono"
+                style={{ padding: "0.45rem 0.75rem", fontSize: "0.75rem" }}
+                placeholder="Track Agent ID (e.g. test-bot)..."
+                value={customAddId}
+                onChange={(e) => setCustomAddId(e.target.value)}
+              />
+              <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: "0.45rem 0.75rem" }}>
+                Track
+              </button>
+            </form>
           </section>
         </aside>
 
@@ -603,7 +661,7 @@ function App() {
                     <input
                       type="text"
                       className="form-input form-input-mono"
-                      placeholder="e.g. alpha-oracle-bot"
+                      placeholder="e.g. alpha-hedge-bot"
                       value={regId}
                       onChange={(e) => setRegId(e.target.value)}
                       disabled={isLoading}
@@ -880,9 +938,17 @@ function App() {
               </div>
             ) : (
               <section className="empty-dashboard">
-                <div className="empty-icon">[NO COVENANT]</div>
-                <h3>No Covenant Selected</h3>
-                <p>Select a registered covenant from the left panel, or provision a new one in the SLA tab.</p>
+                <div className="empty-icon">[COVENANT UNPROVISIONED]</div>
+                <h3>Agent '{selectedAgentId}' Not Provisioned On-Chain</h3>
+                <p style={{ marginBottom: "1.25rem" }}>
+                  This agent ID is not yet registered on contract <code>{contractAddress.slice(0, 8)}...{contractAddress.slice(-6)}</code>.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => prepareProvisionForm(selectedAgentId)}
+                >
+                  Lock Collateral & Provision {selectedAgentId}
+                </button>
               </section>
             )
           )}
