@@ -1,4 +1,4 @@
-# 🛡️ BondKeep: Autonomous AI Escrow & SLA Enforcement Protocol
+# BondKeep: Autonomous AI Escrow & SLA Enforcement Protocol
 
 **BondKeep** is a decentralized fiduciary accountability and Service Level Agreement (SLA) bonding protocol for autonomous AI agents. Built as an **Intelligent Contract** on **GenLayer**, it enables users to lock native financial collateral (bonds) on-chain in smart contract custody. Bonds are dynamically slashed if an AI agent violates its natural-language operational mandate (SLA).
 
@@ -9,7 +9,7 @@ By utilizing GenLayer's non-deterministic web rendering and LLM-driven multi-nod
 
 ---
 
-## ⚡ Core Protocol Advancements
+## Core Protocol Advancements
 
 This version addresses all fundamental protocol security and escrow requirements:
 
@@ -55,41 +55,41 @@ When a breach is verified and slashed by validator consensus, slashed funds are 
 
 ---
 
-## 📐 System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TD
     %% Phase 1
     subgraph Initialization [Phase 1: Payable SLA Initialization]
-        A["👤 Agent Owner"] -->|Lock Native GEN (gl.message.value)| B["📜 BondKeep Contract"]
-        B -->|Set Beneficiary & Telemetry Key| C["🤖 Agent Active in Custody"]
+        A["Agent Owner"] -->|Lock Native GEN (gl.message.value)| B["BondKeep Contract"]
+        B -->|Set Beneficiary & Telemetry Key| C["Agent Active in Custody"]
     end
 
     %% Phase 2
     subgraph Ingestion [Phase 2: Telemetry Ingestion]
-        C -->|Authenticated Log Feed| D["🌐 Decentralized Web Reader<br/>(gl.nondet.web.render)"]
-        E["🔍 Auditor Sentinel"] -->|Initiate Audit Tx| D
+        C -->|Authenticated Log Feed| D["Decentralized Web Reader<br/>(gl.nondet.web.render)"]
+        E["Auditor Sentinel"] -->|Initiate Audit Tx| D
     end
 
     %% Phase 3
     subgraph Consensus [Phase 3: Independent Validator Equivalence]
-        D -->|Raw Telemetry| F["🧠 GenVM Leader Evaluation"]
-        D -->|Independent Render| G["⚖️ Validator Node 1"]
-        D -->|Independent Render| H["⚖️ Validator Node 2"]
+        D -->|Raw Telemetry| F["GenVM Leader Evaluation"]
+        D -->|Independent Render| G["Validator Node 1"]
+        D -->|Independent Render| H["Validator Node 2"]
         
-        F -->|Propose Verdict & Severity| I["🔍 Equivalence Verification<br/>(Severity Delta <= 15 & Slash Cap Check)"]
+        F -->|Propose Verdict & Severity| I["Equivalence Verification<br/>(Severity Delta <= 15 & Slash Cap Check)"]
         G -->|Independent Result| I
         H -->|Independent Result| I
     end
 
     %% Phase 4
     subgraph Enforcement [Phase 4: Bounded Slashing & Beneficiary Payouts]
-        I -->|Consensus Mismatch| J["❌ Revert Transaction"]
-        I -->|Consensus Verified| K["⚡ Bounded Slash (Max 50%)"]
+        I -->|Consensus Mismatch| J["Revert Transaction"]
+        I -->|Consensus Verified| K["Bounded Slash (Max 50%)"]
         
-        K -->|70% Transfer| L["💸 SLA Beneficiary Wallet"]
-        K -->|20% Transfer| M["🎯 Auditor Bounty Wallet"]
-        K -->|10% Reserve| N["💰 Protocol Treasury Vault"]
+        K -->|70% Transfer| L["SLA Beneficiary Wallet"]
+        K -->|20% Transfer| M["Auditor Bounty Wallet"]
+        K -->|10% Reserve| N["Protocol Treasury Vault"]
     end
 
     %% Styles
@@ -106,7 +106,7 @@ flowchart TD
 
 ---
 
-## 🛠️ Verification & Compilation
+## Verification & Compilation
 
 ### Smart Contract Linting
 ```bash
@@ -122,7 +122,7 @@ npm run build
 
 ---
 
-## 🧪 Evaluation Test Scenarios
+## Evaluation Test Scenarios
 
 ### Scenario A: Compliant Agent with Authenticated Telemetry
 * **Mandate**: Trading bot restricted to BTC/ETH spot trades under 5x leverage.

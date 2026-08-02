@@ -467,7 +467,7 @@ function App() {
           {/* Active Wallet Box */}
           <section className="card">
             <h2 className="card-title">
-              🔑 Active Wallet
+              [SESSION] Active Wallet
             </h2>
             <div className="account-box">
               <div className="account-row">
@@ -490,7 +490,7 @@ function App() {
                 onClick={fundAccount}
                 disabled={isFunding}
               >
-                {isFunding ? "Funding..." : "⚡ Request GEN"}
+                {isFunding ? "Funding..." : "Request GEN"}
               </button>
               <button
                 className="btn btn-secondary btn-sm"
@@ -501,7 +501,7 @@ function App() {
                   addLog("Generated new ephemeral keys.", "info");
                 }}
               >
-                🔄 Rotate Key
+                Rotate Key
               </button>
             </div>
           </section>
@@ -509,10 +509,10 @@ function App() {
           {/* Slashed penalty pool & Claimable payouts widget */}
           <section className="card">
             <h2 className="card-title">
-              💰 Escrow Payouts & Vault
+              [VAULT] Escrow Payouts & Vault
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div className="account-box" style={{ background: "rgba(15, 23, 42, 0.6)" }}>
+              <div className="account-box" style={{ background: "rgba(6, 8, 20, 0.7)" }}>
                 <div className="account-row">
                   <span className="account-key">Beneficiary Claimable</span>
                   <span className="account-val" style={{ color: "#34d399", fontWeight: 700 }}>
@@ -526,12 +526,12 @@ function App() {
                     onClick={handleClaimBeneficiary}
                     disabled={isClaiming}
                   >
-                    💸 Claim Beneficiary Payout
+                    Claim Beneficiary Payout
                   </button>
                 )}
               </div>
 
-              <div className="account-box" style={{ background: "rgba(15, 23, 42, 0.6)" }}>
+              <div className="account-box" style={{ background: "rgba(6, 8, 20, 0.7)" }}>
                 <div className="account-row">
                   <span className="account-key">Auditor Bounty Claimable</span>
                   <span className="account-val" style={{ color: "#38bdf8", fontWeight: 700 }}>
@@ -545,7 +545,7 @@ function App() {
                     onClick={handleClaimReporter}
                     disabled={isClaiming}
                   >
-                    🎯 Claim Auditor Bounty
+                    Claim Auditor Bounty
                   </button>
                 )}
               </div>
@@ -564,7 +564,7 @@ function App() {
           {/* Monitored Agents Registry */}
           <section className="card">
             <h2 className="card-title">
-              🤖 Active Covenants
+              [REGISTRY] Active Covenants
             </h2>
             {agentsRegistry.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>No monitored agents.</p>
@@ -595,13 +595,13 @@ function App() {
               className={`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
               onClick={() => setActiveTab("dashboard")}
             >
-              📊 Covenants & Auditing
+              Covenants & Auditing
             </button>
             <button
               className={`tab-btn ${activeTab === "provision" ? "active" : ""}`}
               onClick={() => setActiveTab("provision")}
             >
-              ✍️ Provision SLA & Bond
+              Provision SLA & Bond
             </button>
           </div>
 
@@ -609,7 +609,7 @@ function App() {
             <section className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                 <h2 className="card-title" style={{ margin: 0 }}>
-                  ✍️ Provision AI Agent SLA & Lock Payable Collateral
+                  [PROVISION] Provision AI Agent SLA & Lock Payable Collateral
                 </h2>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <button type="button" className="btn btn-secondary btn-sm" onClick={applyPresetA}>
@@ -628,7 +628,7 @@ function App() {
                     <input
                       type="text"
                       className="form-input form-input-mono"
-                      placeholder="e.g. alpha-hedge-bot"
+                      placeholder="e.g. alpha-oracle-bot"
                       value={regId}
                       onChange={(e) => setRegId(e.target.value)}
                       disabled={isLoading}
@@ -696,7 +696,7 @@ function App() {
                 </div>
 
                 <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                  {isLoading ? "Locking Native Tokens & Deploying..." : "🔒 Deposit GEN & Provision SLA"}
+                  {isLoading ? "Locking Native Tokens & Deploying..." : "Deposit GEN & Provision SLA"}
                 </button>
               </form>
             </section>
@@ -708,18 +708,18 @@ function App() {
                 <section className="card">
                   <div className="agent-header-card">
                     <div className="agent-title-area">
-                      <h2>🤖 {activeAgentData.id}</h2>
-                      <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginTop: "0.25rem" }}>
+                      <h2>[AGENT] {activeAgentData.id}</h2>
+                      <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginTop: "0.35rem" }}>
                         <a
                           href={activeAgentData.evidence_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="agent-url"
                         >
-                          🔗 Verify Telemetry Feed ↗
+                          Verify Telemetry Feed -&gt;
                         </a>
-                        <span style={{ fontSize: "0.75rem", color: "#38bdf8" }}>
-                          🔑 Signer: {activeAgentData.telemetry_key ? `${activeAgentData.telemetry_key.slice(0, 16)}...` : "Authenticated"}
+                        <span style={{ fontSize: "0.75rem", color: "#38bdf8", fontFamily: "var(--font-mono)" }}>
+                          Signer: {activeAgentData.telemetry_key ? `${activeAgentData.telemetry_key.slice(0, 16)}...` : "Authenticated"}
                         </span>
                       </div>
                     </div>
@@ -743,10 +743,10 @@ function App() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                  <div style={{ marginTop: "1rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", fontSize: "0.8rem", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                     <div>
                       <span style={{ color: "var(--text-secondary)" }}>SLA Beneficiary:</span>{" "}
-                      <span style={{ fontFamily: "monospace", color: "#34d399" }}>
+                      <span style={{ color: "#34d399" }}>
                         {activeAgentData.beneficiary ? `${activeAgentData.beneficiary.slice(0, 8)}...${activeAgentData.beneficiary.slice(-6)}` : "None"}
                       </span>
                     </div>
@@ -769,9 +769,9 @@ function App() {
                   {/* Audit Trigger */}
                   <section className="card" style={{ marginBottom: 0 }}>
                     <h2 className="card-title">
-                      🔍 Run Intelligent Audit (Validator Consensus)
+                      [AUDIT] Intelligent Compliance Audit
                     </h2>
-                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem", fontFamily: "var(--font-mono)" }}>
                       Fetch public logs, verify authenticated telemetry headers, and run independent validator equivalence checks.
                     </p>
                     
@@ -791,21 +791,21 @@ function App() {
                       onClick={handleAudit}
                       disabled={isLoading || activeAgentData.status === "FROZEN"}
                     >
-                      {isLoading ? "Running Validator Equivalence..." : "🚀 Execute Consensus Audit"}
+                      {isLoading ? "Running Validator Equivalence..." : "Execute Consensus Audit"}
                     </button>
                   </section>
 
                   {/* Top Up Bond Form */}
                   <section className="card" style={{ marginBottom: 0 }}>
                     <h2 className="card-title">
-                      💸 Top up Escrow Collateral
+                      [CUSTODY] Top Up Escrow Collateral
                     </h2>
-                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem" }}>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginBottom: "1rem", fontFamily: "var(--font-mono)" }}>
                       Deposit additional native GEN tokens directly into contract escrow custody.
                     </p>
 
                     <div className="form-group">
-                      <label className="form-label">Top up Deposit (in GEN)</label>
+                      <label className="form-label">Top Up Deposit (in GEN)</label>
                       <input
                         type="number"
                         className="form-input"
@@ -820,7 +820,7 @@ function App() {
                       onClick={handleTopUp}
                       disabled={isLoading || activeAgentData.status === "FROZEN"}
                     >
-                      {isLoading ? "Confirming..." : "➕ Deposit Native GEN"}
+                      {isLoading ? "Confirming..." : "Deposit Native GEN"}
                     </button>
                   </section>
                 </div>
@@ -828,7 +828,7 @@ function App() {
                 {/* Console Output simulator */}
                 <section className="card" style={{ marginBottom: 0 }}>
                   <h2 className="card-title">
-                    💻 GenVM Consensus Telemetry & Validator Verification
+                    [TERMINAL] GenVM Consensus & Validator Verification
                   </h2>
                   <div className="terminal">
                     <div className="terminal-header">
@@ -853,10 +853,10 @@ function App() {
                 {/* Audit history list */}
                 <section className="card" style={{ marginBottom: 0 }}>
                   <h2 className="card-title">
-                    📜 SLA Evaluation History
+                    [HISTORY] SLA Evaluation Log
                   </h2>
                   {activeAgentData.audits.length === 0 ? (
-                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", padding: "1rem 0" }}>
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", padding: "1rem 0", fontFamily: "var(--font-mono)" }}>
                       No evaluation reports recorded for this covenant yet.
                     </p>
                   ) : (
@@ -905,7 +905,7 @@ function App() {
               </div>
             ) : (
               <section className="empty-dashboard">
-                <div className="empty-icon">📊</div>
+                <div className="empty-icon">[NO COVENANT]</div>
                 <h3>No Covenant Selected</h3>
                 <p>Select a registered covenant from the left panel, or provision a new one in the SLA tab.</p>
               </section>
