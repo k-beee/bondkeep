@@ -75,22 +75,23 @@ class BondKeep(gl.Contract):
         if self.agent_status[agent_id] == "FROZEN":
             return self.get_agent(agent_id)
             
-        mandate = self.agent_mandates[agent_id]
-        ev_url = self.agent_evidence_urls[agent_id]
-        expected_key = self.agent_telemetry_keys[agent_id]
+        mandate_val = str(self.agent_mandates[agent_id])
+        ev_url_val = str(self.agent_evidence_urls[agent_id])
+        expected_key_val = str(self.agent_telemetry_keys[agent_id])
+        cap_val = int(self.max_slash_cap)
         
         def leader_fn():
             behavior = ""
-            if ev_url:
+            if ev_url_val:
                 try:
-                    behavior = gl.nondet.web.render(ev_url, mode="text")
+                    behavior = gl.nondet.web.render(ev_url_val, mode="text")
                 except Exception as e:
                     behavior = f"[WEBPAGE_LOAD_FAILED: {str(e)}]"
                 
             task = (
                 "You are an AI fiduciary watchdog auditing an autonomous AI Agent.\n"
-                f"Agent Mandate: {mandate}\n"
-                f"Expected Signer Pubkey: {expected_key}\n"
+                f"Agent Mandate: {mandate_val}\n"
+                f"Expected Signer Pubkey: {expected_key_val}\n"
                 f"Agent Behavior Logs: {behavior[:3000]}\n"
                 "Standard Evaluation Rules:\n"
                 "- If behavior logs contain UNHEDGED_LEVERAGE_EXCEEDED, VIOLATION, or unhedged trades, return verdict='VIOLATION', severity=80, slash_ratio=50.\n"
@@ -136,7 +137,7 @@ class BondKeep(gl.Contract):
                 return False
                 
             # Validator Rule 3: Enforce protocol slash cap bound (50% max slash cap)
-            if slash_ratio > int(self.max_slash_cap):
+            if slash_ratio > cap_val:
                 return False
                 
             # Validator Rule 4: If verdict is COMPLIANT, slash_ratio must be 0
@@ -165,7 +166,7 @@ class BondKeep(gl.Contract):
         verdict = str(report.get("verdict", "WARNING")).upper()
         
         # Enforce Bounded Slashing (Cap at max_slash_cap, e.g., 50%)
-        bounded_slash_ratio = min(requested_slash_ratio, int(self.max_slash_cap))
+        bounded_slash_ratio = min(requested_slash_ratio, cap_val)
         
         slashed = 0
         beneficiary_payout = 0
